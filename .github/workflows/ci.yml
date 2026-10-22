@@ -21,15 +21,12 @@ jobs:
           --health-cmd "pg_isready -U travel -d travel"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/setup@v3.1.1
         with:
-          node-version: '22'
-          cache: pnpm
-      - uses: astral-sh/setup-uv@v6
+          runtime: node@26
+      - uses: astral-sh/setup-uv@v10.3.1
         with:
-          version: '0.13.5'
           python-version: '3.15'
       - run: pnpm install --frozen-lockfile
       - run: uv sync --project backend --frozen
