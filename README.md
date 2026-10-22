@@ -108,8 +108,11 @@ API client and pytest for app configuration, docs, and CORS. Tests live under
 
 The [Husky](https://typicode.github.io/husky/get-started.html) pre-commit hook runs
 lint-staged: ESLint and Prettier for staged frontend code, Prettier for frontend
-assets, and Ruff lint/format checks for staged Python. Python formatting failures
-can be fixed with `pnpm run format`, then restaged. CI checks lint, tests, OpenAPI
+assets, and Ruff lint/format checks for staged Python. It then runs the full
+frontend build, including TypeScript checks, followed by `pnpm test` for frontend
+tests, backend tests, and OpenAPI consistency before allowing the commit.
+Python formatting failures can be fixed with `pnpm run format`, then restaged.
+CI checks lint, tests, OpenAPI
 consistency, the frontend build, and migration upgrade/downgrade on PostgreSQL.
 
 ## Layout
