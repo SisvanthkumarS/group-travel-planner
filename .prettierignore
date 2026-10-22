@@ -1,0 +1,11 @@
+pnpm-lock.yaml
+backend/uv.lock
+docs/openapi.yaml
+node_modules
+frontend/dist
+**/.venv
+**/.pytest_cache
+**/.ruff_cache
+**/__pycache__
+.tools
+task

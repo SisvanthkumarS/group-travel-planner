@@ -1,0 +1,14 @@
+node_modules/
+frontend/dist/
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.env
+.env.*
+!.env.example
+coverage/
+.coverage
+.husky/_/
+.tools/

@@ -1,0 +1,41 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: '0'
+      DATABASE_URL: postgresql+psycopg://travel:ci-only@localhost:5432/travel
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: travel
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: travel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U travel -d travel"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.5'
+          python-version: '3.15'
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --project backend --frozen
+      - run: pnpm run lint
+      - run: pnpm test
+      - run: pnpm run build
+      - run: pnpm run db:migrate
+      - run: uv run --project backend alembic -c backend/alembic.ini downgrade base
+      - run: pnpm run db:migrate
