@@ -2,8 +2,11 @@
 
 Collaborative group trip planner: participants propose activities, vote in organizer-run polls, and approved plans land on a shared itinerary automatically. NYU CS-GY 6063, Team 10.
 
-This repository currently contains the development scaffold only. No product API
-endpoints, domain tables, login flow, or JWT verification are implemented.
+The backend includes the initial database schema, registration, login using email
+or a unique username, JWT signing/verification, and logout. The frontend login
+context is still a placeholder and is not wired to these endpoints yet.
+Trip Management routes are available as authenticated scaffolds and return HTTP
+501 until their Service and Repository business logic is implemented.
 
 ## Setup
 
@@ -32,7 +35,8 @@ values are disposable local defaults, not deployment credentials.
 | `APP_NAME`, `APP_ENV`                                                | API title and application environment                                 |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Local database configuration and published port                       |
 | `DATABASE_URL`                                                       | SQLAlchemy/psycopg connection URL for host processes                  |
-| `JWT_SECRET`, `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`     | Reserved authentication settings; no authentication is implemented    |
+| `JWT_SECRET`, `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`     | JWT signing key, permitted algorithm, and access-token lifetime       |
+| `JWT_COOKIE_NAME`, `JWT_COOKIE_SECURE`                               | Cookie name and HTTPS-only flag; enable Secure for HTTPS deployments  |
 | `CORS_ORIGINS`                                                       | JSON array of allowed browser origins                                 |
 | `VITE_API_URL`                                                       | Public frontend API base URL, normally `http://localhost:8000/api/v1` |
 
@@ -68,9 +72,21 @@ database-backed features require PostgreSQL.
 
 ## Migrations
 
-An empty baseline revision establishes the migration chain without inventing
-domain tables. Register future models in `backend/app/models/__init__.py` so
-Alembic sees their metadata.
+Revision `0002` creates `users`, `trips`, `trip_members`, and `invitations` from
+the team's Database Setup document, including its constraints and indexes.
+Revision `0003` adds `users.user_name`, also adopting an existing column created
+manually. Existing names are preserved; missing names use the account email.
+Revision `0004` requires unique usernames of 1–10 characters. Before upgrading an
+existing database, correct duplicate, blank, or overlong usernames explicitly;
+the migration does not rename accounts automatically. Username lookup is case-sensitive.
+Revision `0005` expands the username limit to 30 characters, matching registration
+and login validation. Downgrading to `0004` requires names longer than 10 characters
+to be corrected first; the migration never truncates names.
+Register future models in `backend/app/models/__init__.py` so Alembic sees their metadata.
+Use `travel_test` for development; keep the production database separate.
+When reusing an existing Docker volume, create `travel_test` before switching
+`POSTGRES_DB` and `DATABASE_URL`: changing `POSTGRES_DB` only initializes a database
+on a new volume.
 
 ```sh
 uv run --project backend alembic -c backend/alembic.ini revision --autogenerate -m "describe change"
@@ -104,7 +120,14 @@ pnpm run build
 
 Linting runs ESLint, Prettier, and Ruff lint/format checks. Tests use Vitest for the
 API client and pytest for app configuration, docs, and CORS. Tests live under
-`tests/frontend` and `tests/backend`. No database is needed for these tests.
+`tests/frontend` and `tests/backend`. Database integration tests are skipped unless
+`TEST_DATABASE_URL` points to a migrated PostgreSQL test database. They check actual
+constraints and cascade behavior and roll back their test rows. For example, after
+running migrations with the host `DATABASE_URL` exported:
+
+```sh
+TEST_DATABASE_URL="$DATABASE_URL" uv run --project backend pytest -c backend/pyproject.toml tests/backend/test_database_schema.py
+```
 
 The [Husky](https://typicode.github.io/husky/get-started.html) pre-commit hook runs
 lint-staged: ESLint and Prettier for staged frontend code, Prettier for frontend
@@ -113,7 +136,8 @@ frontend build, including TypeScript checks, followed by `pnpm test` for fronten
 tests, backend tests, and OpenAPI consistency before allowing the commit.
 Python formatting failures can be fixed with `pnpm run format`, then restaged.
 CI checks lint, tests, OpenAPI
-consistency, the frontend build, and migration upgrade/downgrade on PostgreSQL.
+consistency, the frontend build, PostgreSQL constraints, model/migration consistency,
+and migration upgrade/downgrade on PostgreSQL.
 
 ## Layout
 

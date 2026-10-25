@@ -1,4 +1,8 @@
 from fastapi import APIRouter
 
-# Register feature controllers here once their contracts are defined.
+from backend.app.controllers.AuthController import router as auth_router
+from backend.app.controllers.TripController import router as trip_router
+
 router = APIRouter(prefix="/api/v1")
+router.include_router(auth_router)
+router.include_router(trip_router)
