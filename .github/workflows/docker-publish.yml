@@ -48,7 +48,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/dev
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/course
           tags: |
             type=raw,value=${{ matrix.service }}-latest,enable=${{ github.ref == 'refs/heads/hc-dev' }}
             type=raw,value=${{ matrix.service }}-{{date 'YYYYMMDD' tz='America/New_York'}}
