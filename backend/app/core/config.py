@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = Field(default=30, gt=0)
+    jwt_cookie_name: str = "access_token"
+    jwt_cookie_secure: bool = False
     cors_origins: list[str] = ["http://localhost:5173"]
 
 

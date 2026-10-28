@@ -1,8 +1,9 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.controllers import router
-from app.core.config import get_settings
+from backend.app.controllers import router
+from backend.app.core.config import get_settings
+from backend.app.core.filter import require_authentication
 
 settings = get_settings()
 app = FastAPI(
@@ -10,6 +11,7 @@ app = FastAPI(
     version="0.1.0",
     openapi_url="/api/v1/openapi.json",
     docs_url="/docs",
+    dependencies=[Depends(require_authentication)],
 )
 app.add_middleware(
     CORSMiddleware,

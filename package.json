@@ -15,7 +15,7 @@
     "prepare": "husky",
     "dev": "docker compose up --build",
     "dev:frontend": "pnpm --filter frontend dev",
-    "dev:backend": "uv run --project backend uvicorn app.main:app --app-dir backend --reload",
+    "dev:backend": "uv run --project backend uvicorn backend.app.main:app --reload",
     "lint": "eslint . && prettier --check . && uv run --project backend ruff check backend tests/backend && uv run --project backend ruff format --check backend tests/backend",
     "format": "prettier --write . && uv run --project backend ruff check --fix backend tests/backend && uv run --project backend ruff format backend tests/backend",
     "test": "pnpm --filter frontend test && uv run --project backend pytest -c backend/pyproject.toml tests/backend && pnpm run openapi:check",
