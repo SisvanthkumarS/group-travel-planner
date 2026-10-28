@@ -12,7 +12,6 @@ router = APIRouter(
     tags=["Trip Management"],
     responses={
         401: {"description": "Authentication required."},
-        501: {"description": "Trip business logic is not implemented yet."},
     },
 )
 
@@ -31,15 +30,14 @@ def create_trip(
     request: Request,
     service: TripServiceDependency,
 ) -> TripResponse:
-    """Create a trip and its Organizer membership. Scaffold currently returns 501."""
-    # The global JWT filter already loaded this user; never accept the actor's
-    # identity from a request body or query parameter.
     return service.create_trip(body, request.state.current_user.user_id)
 
 
-@router.get("", response_model=list[TripResponse])
+@router.get(
+    "",
+    response_model=list[TripResponse],
+)
 def list_trips(request: Request, service: TripServiceDependency) -> list[TripResponse]:
-    """List trips accessible to the current user. Scaffold currently returns 501."""
     return service.list_trips(request.state.current_user.user_id)
 
 
@@ -54,7 +52,7 @@ def list_trips(request: Request, service: TripServiceDependency) -> list[TripRes
 def get_trip(
     trip_id: TripId, request: Request, service: TripServiceDependency
 ) -> TripDetailResponse:
-    """Get trip details and members. Scaffold currently returns 501."""
+    """Get trip details and the complete member list; trip membership required."""
     return service.get_trip(trip_id, request.state.current_user.user_id)
 
 
@@ -67,6 +65,6 @@ def get_trip(
     },
 )
 def delete_trip(trip_id: TripId, request: Request, service: TripServiceDependency) -> Response:
-    """Delete a trip as its Organizer. Scaffold currently returns 501."""
+    """Delete a trip as its Organizer; return an empty 204 response."""
     service.delete_trip(trip_id, request.state.current_user.user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

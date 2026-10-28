@@ -1,8 +1,15 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from backend.app.models import TripMember
+from backend.app.models.trip import Trip
 from backend.app.repositories.TripRepository import TripRepository
-from backend.app.schemas.trip import CreateTripRequest, TripDetailResponse, TripResponse
+from backend.app.schemas.trip import (
+    CreateTripRequest,
+    TripDetailResponse,
+    TripMemberResponse,
+    TripResponse,
+)
 
 
 class TripService:
@@ -16,36 +23,73 @@ class TripService:
         # another session.begin() around an already-active transaction.
 
     def create_trip(self, request: CreateTripRequest, current_user_id: int) -> TripResponse:
-        # TODO: create Trip with organizer_id=current_user_id, then add its
-        # ORGANIZER membership. Commit both writes together; rollback on failure.
-        # Return TripResponse.model_validate(trip), loaded before commit or refreshed.
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Trip creation business logic is not implemented yet.",
-        )
+        try:
+            trip = Trip(
+                name=request.name,
+                destination=request.destination,
+                start_date=request.start_date,
+                end_date=request.end_date,
+                organizer_id=current_user_id,
+            )
+            created_trip = self.repository.add(trip)
+            trip_member = TripMember(
+                trip_id=created_trip.trip_id,
+                user_id=current_user_id,
+                role="ORGANIZER",
+            )
+            self.repository.add_member(trip_member)
+
+            # Build the DTO before commit expires the ORM object's attributes.
+            response = TripResponse.model_validate(created_trip)
+            self.session.commit()  # Persist trip and Organizer membership together.
+            return response
+        except Exception:
+            self.session.rollback()
+            raise
 
     def list_trips(self, current_user_id: int) -> list[TripResponse]:
-        # TODO: query repository.list_for_user and map results to TripResponse.
-        # Return [] when the authenticated user has no accessible trips.
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Trip listing business logic is not implemented yet.",
-        )
+        trips = self.repository.list_for_user(current_user_id)
+        return [TripResponse.model_validate(trip) for trip in trips]
 
     def get_trip(self, trip_id: int, current_user_id: int) -> TripDetailResponse:
-        # TODO: find trip (404 if absent), verify membership (403 if not a member),
-        # load members with users, and build TripDetailResponse with the member list.
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Trip details business logic is not implemented yet.",
+        trip = self.repository.find_by_id(trip_id)
+        if trip is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found.")
+
+        membership = self.repository.find_membership(trip_id, current_user_id)
+        if membership is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Trip membership required.",
+            )
+
+        members = [
+            TripMemberResponse(
+                user_id=member.user_id,
+                user_name=user.user_name,
+                role=member.role,
+                joined_at=member.joined_at,
+            )
+            for member, user in self.repository.list_members_with_users(trip_id)
+        ]
+        return TripDetailResponse(
+            **TripResponse.model_validate(trip).model_dump(),
+            members=members,
         )
 
     def delete_trip(self, trip_id: int, current_user_id: int) -> None:
-        # TODO: find trip (404 if absent); require organizer_id=current_user_id
-        # (otherwise 403). Delete it and commit; rollback on failure. Existing
-        # foreign-key cascades remove memberships/invitations. Include planning
-        # records when their models and deletion rules are implemented.
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Trip deletion business logic is not implemented yet.",
-        )
+        # Existing foreign-key cascades delete this trip's members and invitations.
+        try:
+            trip = self.repository.find_by_id(trip_id)
+            if trip is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found.")
+            if trip.organizer_id != current_user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only the Organizer can delete this trip.",
+                )
+            self.repository.delete(trip)
+            self.session.commit()
+        except Exception:
+            self.session.rollback()
+            raise

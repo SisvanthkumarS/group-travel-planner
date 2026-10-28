@@ -5,8 +5,15 @@ Collaborative group trip planner: participants propose activities, vote in organ
 The backend includes the initial database schema, registration, login using email
 or a unique username, JWT signing/verification, and logout. The frontend login
 context is still a placeholder and is not wired to these endpoints yet.
-Trip Management routes are available as authenticated scaffolds and return HTTP
-501 until their Service and Repository business logic is implemented.
+Authenticated trip creation persists the trip and Organizer membership in one
+transaction. Trip details return the trip and its member list to authenticated
+members. Trip listing includes only the current user's memberships, ordered by
+start date and trip ID. Organizers can delete their trips; memberships and invitations
+are removed by database cascades in the same transaction.
+Organizers can create pending invitations for registered users by email or username;
+existing members and duplicate pending invitations are rejected. Users can list all
+invitations they have received, newest first, and accept or decline pending invitations.
+Acceptance adds the recipient as a member atomically and enforces the eight-person trip limit.
 
 ## Setup
 

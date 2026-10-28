@@ -75,8 +75,6 @@ paths:
       tags:
       - Trip Management
       summary: List Trips
-      description: List trips accessible to the current user. Scaffold currently returns
-        501.
       operationId: list_trips_api_v1_trips_get
       responses:
         '200':
@@ -90,14 +88,10 @@ paths:
                 title: Response List Trips Api V1 Trips Get
         '401':
           description: Authentication required.
-        '501':
-          description: Trip business logic is not implemented yet.
     post:
       tags:
       - Trip Management
       summary: Create Trip
-      description: Create a trip and its Organizer membership. Scaffold currently
-        returns 501.
       operationId: create_trip_api_v1_trips_post
       requestBody:
         content:
@@ -114,8 +108,6 @@ paths:
                 $ref: '#/components/schemas/TripResponse'
         '401':
           description: Authentication required.
-        '501':
-          description: Trip business logic is not implemented yet.
         '422':
           description: Validation Error
           content:
@@ -127,7 +119,8 @@ paths:
       tags:
       - Trip Management
       summary: Get Trip
-      description: Get trip details and members. Scaffold currently returns 501.
+      description: Get trip details and the complete member list; trip membership
+        required.
       operationId: get_trip_api_v1_trips__trip_id__get
       parameters:
       - name: trip_id
@@ -148,8 +141,6 @@ paths:
                 $ref: '#/components/schemas/TripDetailResponse'
         '401':
           description: Authentication required.
-        '501':
-          description: Trip business logic is not implemented yet.
         '403':
           description: Trip membership required.
         '404':
@@ -164,7 +155,7 @@ paths:
       tags:
       - Trip Management
       summary: Delete Trip
-      description: Delete a trip as its Organizer. Scaffold currently returns 501.
+      description: Delete a trip as its Organizer; return an empty 204 response.
       operationId: delete_trip_api_v1_trips__trip_id__delete
       parameters:
       - name: trip_id
@@ -181,8 +172,6 @@ paths:
           description: Successful Response
         '401':
           description: Authentication required.
-        '501':
-          description: Trip business logic is not implemented yet.
         '403':
           description: Organizer required.
         '404':
@@ -193,8 +182,122 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/trips/{trip_id}/invitations:
+    post:
+      tags:
+      - Invitations
+      summary: Create Invitation
+      description: Create a pending invitation by email or user_name; Organizer only.
+      operationId: create_invitation_api_v1_trips__trip_id__invitations_post
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          exclusiveMinimum: 0
+          description: Trip ID
+          title: Trip Id
+        description: Trip ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvitationRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Organizer required.
+        '404':
+          description: Trip or registered recipient not found.
+        '409':
+          description: Already a member or invitation already pending.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/invitations:
+    get:
+      tags:
+      - Invitations
+      summary: List Invitations
+      description: List all invitations received by the current user, newest first.
+      operationId: list_invitations_api_v1_invitations_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/InvitationResponse'
+                type: array
+                title: Response List Invitations Api V1 Invitations Get
+        '401':
+          description: Authentication required.
+    patch:
+      tags:
+      - Invitations
+      summary: Respond To Invitation
+      description: Accept or decline a pending invitation; only its recipient can
+        respond.
+      operationId: respond_to_invitation_api_v1_invitations_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RespondInvitationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Only the recipient can respond.
+        '404':
+          description: Invitation or trip not found.
+        '409':
+          description: Already answered, already a member, or trip is full.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    CreateInvitationRequest:
+      properties:
+        email:
+          anyOf:
+          - type: string
+            format: email
+          - type: 'null'
+          title: Email
+        user_name:
+          anyOf:
+          - type: string
+            maxLength: 30
+            minLength: 1
+          - type: 'null'
+          title: User Name
+      type: object
+      title: CreateInvitationRequest
     CreateTripRequest:
       properties:
         name:
@@ -229,6 +332,47 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    InvitationResponse:
+      properties:
+        invitation_id:
+          type: integer
+          title: Invitation Id
+        trip_id:
+          type: integer
+          title: Trip Id
+        invited_user_id:
+          type: integer
+          title: Invited User Id
+        invited_by_user_id:
+          type: integer
+          title: Invited By User Id
+        status:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - DECLINED
+          title: Status
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        responded_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Responded At
+      type: object
+      required:
+      - invitation_id
+      - trip_id
+      - invited_user_id
+      - invited_by_user_id
+      - status
+      - created_at
+      - responded_at
+      title: InvitationResponse
     LoginRequest:
       properties:
         user_name:
@@ -277,6 +421,23 @@ components:
       - email
       - password
       title: RegisterRequest
+    RespondInvitationRequest:
+      properties:
+        invitation_id:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Invitation Id
+        decision:
+          type: string
+          enum:
+          - ACCEPT
+          - DECLINE
+          title: Decision
+      type: object
+      required:
+      - invitation_id
+      - decision
+      title: RespondInvitationRequest
     TripDetailResponse:
       properties:
         trip_id:

@@ -62,15 +62,6 @@ def test_trip_routes_require_authentication(client, method, path, body):
     assert response.status_code == 401
 
 
-@pytest.mark.parametrize(("method", "path", "body"), ENDPOINTS)
-def test_trip_scaffold_returns_501_after_authentication(
-    authenticated_client, method, path, body
-):
-    response = authenticated_client.request(method, path, json=body)
-    assert response.status_code == 501
-    assert "not implemented" in response.json()["detail"]
-
-
 @pytest.mark.parametrize(
     "changes",
     [

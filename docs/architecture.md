@@ -21,14 +21,40 @@ Tokens contain no password data. Set `JWT_COOKIE_SECURE=true` for HTTPS deployme
 Clearing a cookie does not revoke a previously issued token on the server.
 
 Trip Management exposes authenticated create, list, detail, and delete routes at
-`/api/v1/trips`. These are scaffolds: `TripService` returns HTTP 501 until business
-logic is implemented. Controllers delegate with the authenticated user ID; the
+`/api/v1/trips`. Creation inserts the trip and Organizer membership, then commits
+both together; failures roll back both writes. Details return the trip fields and
+all members after verifying membership: absent trips return 404 and non-members
+receive 403. Member responses include names, roles, and join times, without
+passwords or email addresses. Listing returns only trips the user belongs to,
+ordered by start date and trip ID, or an empty list when there are no memberships.
+Deletion requires the Organizer, returns 404 for absent trips and 403 for other
+users, and commits the trip deletion and cascaded member/invitation deletion
+atomically. A successful deletion returns 204 with no body. Controllers delegate with the authenticated user ID; the
 client cannot choose its own Organizer identity. Request DTOs validate nonblank
-names/destinations and date order. `TripRepository` provides unimplemented database
-method signatures. Creation must insert the trip and Organizer membership in one
-transaction; detail access requires membership, and deletion requires the Organizer.
+names/destinations and date order. Detail queries do not flush or commit the Session.
 The authentication lookup already starts the shared Session transaction, so write
 services should finish it with commit/rollback rather than calling begin again.
+
+`InvitationController` exposes POST `/trips/{trip_id}/invitations`, GET
+`/invitations`, and PATCH `/invitations` under `/api/v1`. Creation, listing, and responses are implemented and require authentication. Creation accepts the registered recipient's `email` or
+`user_name` (1–30 characters, case-sensitive); blank identifiers become absent and
+at least one is required. Lookup prefers email if both are provided and never
+falls back to username after a failed email lookup. Responses
+accept an `invitation_id` and `decision` (`ACCEPT` / `DECLINE`). Stored states remain
+`PENDING`, `ACCEPTED`, and `DECLINED`. Creation locks the trip, requires the Organizer,
+rejects self-invites, existing members and pending duplicates, and commits once.
+The pending unique index also maps concurrent duplicate conflicts to HTTP 409.
+Failures roll back the transaction. Only the recipient can respond to a pending
+invitation; already answered invitations return HTTP 409.
+`InvitationRepository` owns invitation queries; `TripInvitationRepository` implements
+trip locking and member counts. Responses lock the trip first, then lock and
+refresh the invitation. Acceptance checks membership and the eight-person limit
+(including the Organizer), then commits the MEMBER row and ACCEPTED status in one
+transaction. Declining records DECLINED without adding membership, even if the trip
+is full. Both decisions record a UTC responded_at; failures roll back all changes. Listing filters by the
+authenticated recipient's `invited_user_id`, includes all invitation states, and
+orders by `created_at DESC, invitation_id DESC`. It returns an empty list when
+there are no invitations and does not flush or commit.
 
 | Layer        | Responsibility                                             |
 | ------------ | ---------------------------------------------------------- |
