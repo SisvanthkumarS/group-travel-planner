@@ -13,7 +13,7 @@
   },
   "scripts": {
     "prepare": "husky",
-    "dev": "docker compose up --build",
+    "dev": "docker compose --env-file docker/.env -f docker/compose.dev.yml up -d",
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "uv run --project backend uvicorn app.main:app --app-dir backend --reload",
     "lint": "eslint . && prettier --check . && uv run --project backend ruff check backend tests/backend && uv run --project backend ruff format --check backend tests/backend",

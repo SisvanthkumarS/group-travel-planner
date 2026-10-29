@@ -1,0 +1,48 @@
+include:
+  - ./compose.base.yml
+services:
+  backend:
+    image: astral/uv:0.13.5-debian-slim
+    command: ['sleep', 'infinity']
+    working_dir: /app
+    environment:
+      APP_NAME: ${APP_NAME}
+      APP_ENV: ${APP_ENV}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
+      CORS_ORIGINS: '["frontend:5173"]'
+    ports:
+      - '8000:8000'
+    volumes:
+      - ../backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    image: node:26-alpine
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        npm install -g pnpm@12.15.0
+        pnpm install --frozen-lockfile
+        pnpm --filter frontend dev
+    working_dir: /app
+    environment:
+      VITE_API_URL: 'http://frontend:8000/api/v1'
+    ports:
+      - '5173:5173'
+    volumes:
+      - ../frontend:/app/frontend
+      - ../package.json:/app/package.json
+      - ../pnpm-lock.yaml:/app/pnpm-lock.yaml
+      - ../pnpm-workspace.yaml:/app/pnpm-workspace.yaml
+    depends_on:
+      backend:
+        condition: service_started
