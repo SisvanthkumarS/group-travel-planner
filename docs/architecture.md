@@ -77,6 +77,43 @@ one-shot service, and starts the API after successful migration. Backend health
 checks read the generated schema; they confirm HTTP availability, not database
 readiness. Frontend health checks read its index page.
 
+`ActivityController` exposes proposal submission/listing/withdrawal, poll opening,
+voting/tie resolution, and itinerary retrieval/cancellation. `ActivityService`
+enforces the requirements in US-07 through US-10 and US-13 through US-16;
+`ActivityRepository` owns persistence. Revision `0006` adds proposals, polls,
+eligible voter snapshots, current votes, vote history, and itinerary items.
+Proposal submission requires a description and non-negative estimated cost.
+The activity start must be in the future, its end must follow its start, and both
+must fall within the trip dates. Since trips have no timezone field, travel dates
+are interpreted as UTC calendar dates; activity timestamps must include an offset.
+The 100-proposal limit includes withdrawn, rejected, and canceled proposals.
+
+Opening a poll snapshots all current trip participants, including the organizer
+and author. Its deadline must be after now and before the activity starts. There
+is one current vote per eligible participant; changed choices append history,
+while an identical PUT retry has no additional effect. New members cannot vote in
+polls already open. Voting and withdrawal stop at the deadline even before the
+scheduler processes it. Only the author can withdraw PENDING/OPEN proposals;
+withdrawal cancels an open poll without producing an outcome.
+
+The FastAPI lifespan runs an internal poll scheduler every five seconds by default.
+`POLL_SCHEDULER_ENABLED` and `POLL_SCHEDULER_INTERVAL_SECONDS` configure it. Overdue
+polls are discovered from the database, so a restart recovers missed deadlines.
+The scheduler retries failures on the next scan. No public closing endpoint exists.
+More YES than NO approves; more NO or zero votes rejects; equal nonzero counts
+produces TIED. Only the organizer may resolve a tie. Approval and creation of a
+unique itinerary item commit together. Cancellation sets the item and proposal to
+CANCELLED but retains the poll outcome, organizer resolution, votes, and history.
+Active itinerary results sort by start time, then item ID. Proposal lists batch
+their poll/voter/vote/history queries rather than querying each proposal separately.
+
+All activity transactions acquire the trip row lock first, including poll opening
+and its membership snapshot, to coordinate with invitation acceptance and enforce
+capacity limits. Existing proposal/poll objects refresh after the lock is acquired.
+Scheduler workers skip locked trips and retry on a later scan, so multiple API
+workers cannot resolve the same poll twice. All failures roll back the complete
+operation. Reads also use the trip lock to return consistent proposal/poll histories.
+
 `docs/openapi.yaml` is generated from FastAPI and compared semantically in CI.
-Add domain models, endpoints, authentication, and their tests when their designs
-are ready. The current Docker setup uses reload servers and is for development.
+Apply Alembic migrations before starting the API. The current Docker setup uses
+reload servers and is for development.

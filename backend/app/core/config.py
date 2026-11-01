@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = Field(default=30, gt=0)
     jwt_cookie_name: str = "access_token"
     jwt_cookie_secure: bool = False
+    poll_scheduler_enabled: bool = True
+    poll_scheduler_interval_seconds: float = Field(default=5, gt=0)
     cors_origins: list[str] = ["http://localhost:5173"]
 
 
