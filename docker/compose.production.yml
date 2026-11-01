@@ -1,0 +1,30 @@
+include:
+  - ./compose.base.yml
+services:
+  backend:
+    image: hubertchang/course:backend-latest
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
+      CORS_ORIGINS: '["http://localhost:3000"]'
+    ports:
+      - '8000:8000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    image: hubertchang/course:frontend-latest
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+    ports:
+      - '3000:3000'
+    depends_on:
+      backend:
+        condition: service_started
