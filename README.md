@@ -15,6 +15,10 @@ existing members and duplicate pending invitations are rejected. Users can list 
 invitations they have received, newest first, and accept or decline pending invitations.
 Acceptance adds the recipient as a member atomically and enforces the eight-person trip limit.
 
+For frontend integration, see the [Backend API Integration Guide](docs/backend-api-guide.md)
+for request fields, authentication requirements, response examples, and error handling
+for all ten Authentication, Trip Management, and Invitation endpoints.
+
 ## Setup
 
 Install Node.js 22.12+, [pnpm](https://pnpm.io/installation), and
