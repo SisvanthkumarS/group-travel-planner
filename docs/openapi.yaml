@@ -279,6 +279,416 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/trips/{trip_id}/proposals:
+    post:
+      tags:
+      - Activity Proposals
+      summary: Create Proposal
+      description: 'Submit a PENDING proposal as a trip participant.
+
+
+        Activity times must be in the future and within the trip''s UTC travel dates.
+
+        Description and non-negative estimated cost are required. At most 100 proposals
+
+        are allowed per trip, including withdrawn and canceled proposals.'
+      operationId: create_proposal_api_v1_trips__trip_id__proposals_post
+      security:
+      - CookieAuth: []
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Trip Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProposalRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Required membership, authorship, organizer role, or eligibility
+            missing
+        '404':
+          description: Requested resource not found in this trip.
+        '409':
+          description: Trip already contains 100 proposals.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Activity Proposals
+      summary: List Proposals
+      description: 'List all proposals, statuses, counts, poll outcomes and voting
+        history; members only.
+
+
+        Includes WITHDRAWN, REJECTED and CANCELLED proposals. Poll outcomes and tie
+
+        decisions are retained after cancellation. Returns an empty array when none
+        exist.'
+      operationId: list_proposals_api_v1_trips__trip_id__proposals_get
+      security:
+      - CookieAuth: []
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Trip Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProposalResponse'
+                title: Response List Proposals Api V1 Trips  Trip Id  Proposals Get
+        '401':
+          description: Authentication required.
+        '403':
+          description: Required membership, authorship, organizer role, or eligibility
+            missing
+        '404':
+          description: Requested resource not found in this trip.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/withdraw:
+    post:
+      tags:
+      - Activity Proposals
+      summary: Withdraw Proposal
+      description: 'Author only: withdraw a PENDING or OPEN proposal before the poll
+        deadline.
+
+
+        An open poll is canceled without an outcome. Existing votes and history remain,
+
+        and further voting, opening a poll, or resolution is prohibited.'
+      operationId: withdraw_proposal_api_v1_proposals__proposal_id__withdraw_post
+      security:
+      - CookieAuth: []
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Proposal Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Required membership, authorship, organizer role, or eligibility
+            missing
+        '404':
+          description: Requested resource not found in this trip.
+        '409':
+          description: Proposal is not PENDING/OPEN or poll deadline has passed.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/proposals/{proposal_id}/poll:
+    post:
+      tags:
+      - Polls and Voting
+      summary: Open Poll
+      description: 'Organizer only: open a pending proposal''s poll and snapshot all
+        current participants.
+
+
+        The organizer and proposal author are eligible. Deadline must be after now
+        and
+
+        before the activity start. The internal scheduler closes polls automatically:
+
+        more YES than NO approves and adds an itinerary item exactly once; more NO
+        or
+
+        zero votes rejects; equal nonzero counts produces TIED. No quorum is required.
+
+        There is no public poll-closing endpoint.'
+      operationId: open_poll_api_v1_proposals__proposal_id__poll_post
+      security:
+      - CookieAuth: []
+      parameters:
+      - name: proposal_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Proposal Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenPollRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Required membership, authorship, organizer role, or eligibility
+            missing
+        '404':
+          description: Requested resource not found in this trip.
+        '409':
+          description: Proposal is not PENDING or already has a poll.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/polls/{poll_id}/vote:
+    put:
+      tags:
+      - Polls and Voting
+      summary: Vote
+      description: 'Cast or update one YES/NO vote as an eligible participant strictly
+        before the deadline.
+
+
+        Eligibility is fixed at poll opening. Changed choices preserve the old choice
+        in
+
+        history; repeating the current choice is idempotent. Votes are rejected at
+        the
+
+        deadline even if the scheduler has not yet processed the poll.'
+      operationId: vote_api_v1_polls__poll_id__vote_put
+      security:
+      - CookieAuth: []
+      parameters:
+      - name: poll_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Poll Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Required membership, authorship, organizer role, or eligibility
+            missing
+        '404':
+          description: Requested resource not found in this trip.
+        '409':
+          description: Poll/proposal is not OPEN or deadline reached.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/polls/{poll_id}/resolve:
+    post:
+      tags:
+      - Polls and Voting
+      summary: Resolve Poll
+      description: 'Organizer only: approve or reject an automatically closed, tied
+        proposal.
+
+
+        Approval adds the activity to the itinerary exactly once. The original TIED
+
+        outcome and the organizer''s resolution are both retained. Does not close
+        polls.'
+      operationId: resolve_poll_api_v1_polls__poll_id__resolve_post
+      security:
+      - CookieAuth: []
+      parameters:
+      - name: poll_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Poll Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolvePollRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Required membership, authorship, organizer role, or eligibility
+            missing
+        '404':
+          description: Requested resource not found in this trip.
+        '409':
+          description: Poll has no unresolved TIED proposal.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/trips/{trip_id}/itinerary:
+    get:
+      tags:
+      - Shared Itinerary
+      summary: Get Itinerary
+      description: 'Members only: retrieve active approved activities ordered by starts_at
+        then item_id.
+
+
+        Canceled activities are excluded. Returns an empty array when no active items
+        exist.'
+      operationId: get_itinerary_api_v1_trips__trip_id__itinerary_get
+      security:
+      - CookieAuth: []
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Trip Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ItineraryItemResponse'
+                title: Response Get Itinerary Api V1 Trips  Trip Id  Itinerary Get
+        '401':
+          description: Authentication required.
+        '403':
+          description: Required membership, authorship, organizer role, or eligibility
+            missing
+        '404':
+          description: Requested resource not found in this trip.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/trips/{trip_id}/itinerary/{item_id}:
+    delete:
+      tags:
+      - Shared Itinerary
+      summary: Cancel Itinerary Item
+      description: 'Organizer only: cancel an approved activity belonging to this
+        trip.
+
+
+        Sets the proposal and itinerary item to CANCELLED, preserving poll outcomes
+        and
+
+        voting history. Already canceled items also return an empty 204 response.'
+      operationId: cancel_itinerary_item_api_v1_trips__trip_id__itinerary__item_id__delete
+      security:
+      - CookieAuth: []
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Trip Id
+      - name: item_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Item Id
+      responses:
+        '204':
+          description: Successful Response
+        '401':
+          description: Authentication required.
+        '403':
+          description: Required membership, authorship, organizer role, or eligibility
+            missing
+        '404':
+          description: Requested resource not found in this trip.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     CreateInvitationRequest:
@@ -298,6 +708,43 @@ components:
           title: User Name
       type: object
       title: CreateInvitationRequest
+    CreateProposalRequest:
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: Title
+        description:
+          type: string
+          minLength: 1
+          title: Description
+        estimated_cost:
+          anyOf:
+          - type: number
+            minimum: 0.0
+          - type: string
+          title: Estimated Cost
+        location:
+          type: string
+          minLength: 1
+          title: Location
+        starts_at:
+          type: string
+          format: date-time
+          title: Starts At
+        ends_at:
+          type: string
+          format: date-time
+          title: Ends At
+      type: object
+      required:
+      - title
+      - description
+      - estimated_cost
+      - location
+      - starts_at
+      - ends_at
+      title: CreateProposalRequest
     CreateTripRequest:
       properties:
         name:
@@ -373,6 +820,54 @@ components:
       - created_at
       - responded_at
       title: InvitationResponse
+    ItineraryItemResponse:
+      properties:
+        item_id:
+          type: integer
+          title: Item Id
+        trip_id:
+          type: integer
+          title: Trip Id
+        proposal_id:
+          type: integer
+          title: Proposal Id
+        title:
+          type: string
+          title: Title
+        description:
+          type: string
+          title: Description
+        estimated_cost:
+          type: string
+          title: Estimated Cost
+        location:
+          type: string
+          title: Location
+        starts_at:
+          type: string
+          format: date-time
+          title: Starts At
+        ends_at:
+          type: string
+          format: date-time
+          title: Ends At
+        status:
+          type: string
+          const: ACTIVE
+          title: Status
+      type: object
+      required:
+      - item_id
+      - trip_id
+      - proposal_id
+      - title
+      - description
+      - estimated_cost
+      - location
+      - starts_at
+      - ends_at
+      - status
+      title: ItineraryItemResponse
     LoginRequest:
       properties:
         user_name:
@@ -398,6 +893,189 @@ components:
       required:
       - password
       title: LoginRequest
+    OpenPollRequest:
+      properties:
+        deadline:
+          type: string
+          format: date-time
+          title: Deadline
+          description: Future deadline; voting stops at this instant.
+      type: object
+      required:
+      - deadline
+      title: OpenPollRequest
+    PollResolution:
+      properties:
+        decision:
+          type: string
+          enum:
+          - APPROVE
+          - REJECT
+          title: Decision
+        resolved_by_user_id:
+          type: integer
+          title: Resolved By User Id
+        resolved_at:
+          type: string
+          format: date-time
+          title: Resolved At
+      type: object
+      required:
+      - decision
+      - resolved_by_user_id
+      - resolved_at
+      title: PollResolution
+    PollResponse:
+      properties:
+        poll_id:
+          type: integer
+          title: Poll Id
+        proposal_id:
+          type: integer
+          title: Proposal Id
+        status:
+          type: string
+          enum:
+          - OPEN
+          - CLOSED
+          - CANCELED
+          title: Status
+        deadline:
+          type: string
+          format: date-time
+          title: Deadline
+        opened_at:
+          type: string
+          format: date-time
+          title: Opened At
+        closed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Closed At
+        outcome:
+          anyOf:
+          - type: string
+            enum:
+            - APPROVED
+            - REJECTED
+            - TIED
+          - type: 'null'
+          title: Outcome
+          description: Original automatic poll outcome, retained after resolution
+            and cancellation.
+        yes_count:
+          type: integer
+          title: Yes Count
+        no_count:
+          type: integer
+          title: No Count
+        total_votes:
+          type: integer
+          title: Total Votes
+        eligible_voter_ids:
+          items:
+            type: integer
+          type: array
+          title: Eligible Voter Ids
+        votes:
+          items:
+            $ref: '#/components/schemas/VoteResponse'
+          type: array
+          title: Votes
+          description: One current counted choice per voter.
+        voting_history:
+          items:
+            $ref: '#/components/schemas/VoteResponse'
+          type: array
+          title: Voting History
+          description: All changed choices in event order.
+        resolution:
+          anyOf:
+          - $ref: '#/components/schemas/PollResolution'
+          - type: 'null'
+      type: object
+      required:
+      - poll_id
+      - proposal_id
+      - status
+      - deadline
+      - opened_at
+      - closed_at
+      - outcome
+      - yes_count
+      - no_count
+      - total_votes
+      - eligible_voter_ids
+      - votes
+      - voting_history
+      - resolution
+      title: PollResponse
+    ProposalResponse:
+      properties:
+        proposal_id:
+          type: integer
+          title: Proposal Id
+        trip_id:
+          type: integer
+          title: Trip Id
+        author_id:
+          type: integer
+          title: Author Id
+        title:
+          type: string
+          title: Title
+        description:
+          type: string
+          title: Description
+        estimated_cost:
+          type: string
+          title: Estimated Cost
+        location:
+          type: string
+          title: Location
+        starts_at:
+          type: string
+          format: date-time
+          title: Starts At
+        ends_at:
+          type: string
+          format: date-time
+          title: Ends At
+        status:
+          type: string
+          enum:
+          - PENDING
+          - OPEN
+          - TIED
+          - APPROVED
+          - REJECTED
+          - WITHDRAWN
+          - CANCELLED
+          title: Status
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        poll:
+          anyOf:
+          - $ref: '#/components/schemas/PollResponse'
+          - type: 'null'
+      type: object
+      required:
+      - proposal_id
+      - trip_id
+      - author_id
+      - title
+      - description
+      - estimated_cost
+      - location
+      - starts_at
+      - ends_at
+      - status
+      - created_at
+      title: ProposalResponse
     RegisterRequest:
       properties:
         user_name:
@@ -421,6 +1099,18 @@ components:
       - email
       - password
       title: RegisterRequest
+    ResolvePollRequest:
+      properties:
+        decision:
+          type: string
+          enum:
+          - APPROVE
+          - REJECT
+          title: Decision
+      type: object
+      required:
+      - decision
+      title: ResolvePollRequest
     RespondInvitationRequest:
       properties:
         invitation_id:
@@ -579,3 +1269,45 @@ components:
       - msg
       - type
       title: ValidationError
+    VoteRequest:
+      properties:
+        choice:
+          type: string
+          enum:
+          - 'YES'
+          - 'NO'
+          title: Choice
+      type: object
+      required:
+      - choice
+      title: VoteRequest
+    VoteResponse:
+      properties:
+        choice:
+          type: string
+          enum:
+          - 'YES'
+          - 'NO'
+          title: Choice
+        poll_id:
+          type: integer
+          title: Poll Id
+        user_id:
+          type: integer
+          title: User Id
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - choice
+      - poll_id
+      - user_id
+      - updated_at
+      title: VoteResponse
+  securitySchemes:
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
