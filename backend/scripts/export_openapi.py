@@ -6,9 +6,9 @@ from pathlib import Path
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from app.main import app  # noqa: E402
+from backend.app.main import app  # noqa: E402
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--check", action="store_true")

@@ -34,5 +34,11 @@ jobs:
       - run: pnpm test
       - run: pnpm run build
       - run: pnpm run db:migrate
+      - name: Verify PostgreSQL constraints and model metadata
+        env:
+          TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          uv run --project backend pytest -c backend/pyproject.toml tests/backend/test_database_schema.py tests/backend/test_auth_integration.py tests/backend/test_trip_integration.py tests/backend/test_invitation_integration.py
+          uv run --project backend alembic -c backend/alembic.ini check
       - run: uv run --project backend alembic -c backend/alembic.ini downgrade base
       - run: pnpm run db:migrate
