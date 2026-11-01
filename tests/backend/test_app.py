@@ -16,6 +16,13 @@ def test_documentation_and_api_contract():
         "/api/v1/trips/{trip_id}",
         "/api/v1/trips/{trip_id}/invitations",
         "/api/v1/invitations",
+        "/api/v1/trips/{trip_id}/proposals",
+        "/api/v1/proposals/{proposal_id}/withdraw",
+        "/api/v1/proposals/{proposal_id}/poll",
+        "/api/v1/polls/{poll_id}/vote",
+        "/api/v1/polls/{poll_id}/resolve",
+        "/api/v1/trips/{trip_id}/itinerary",
+        "/api/v1/trips/{trip_id}/itinerary/{item_id}",
     }
     assert client.get("/docs").status_code == 200
 

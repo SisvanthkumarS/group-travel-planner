@@ -4,4 +4,24 @@ from backend.app.models.trip import Trip
 from backend.app.models.trip_member import TripMember
 from backend.app.models.user import User
 
-__all__ = ["Base", "Invitation", "Trip", "TripMember", "User"]
+__all__ = [
+    "Base",
+    "Invitation",
+    "Trip",
+    "TripMember",
+    "User",
+    "Proposal",
+    "Poll",
+    "EligibleVoter",
+    "Vote",
+    "VoteHistory",
+    "ItineraryItem",
+]
+from backend.app.models.activity import (
+    EligibleVoter,
+    ItineraryItem,
+    Poll,
+    Proposal,
+    Vote,
+    VoteHistory,
+)
