@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "openapi:types": "pnpm dlx --package openapi-typescript@7.13.0 --package typescript@5.9.3 openapi-typescript ../docs/openapi.yaml -o src/api/schema.d.ts"
   },
   "dependencies": {
     "react": "^19.3.1",
