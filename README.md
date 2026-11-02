@@ -59,6 +59,24 @@ any deployed environment; the Compose setup is for development.
 
 ## Development
 
+Cookie-authenticated API requests use custom-header CSRF protection. Every request
+except `GET`, `HEAD`, and `OPTIONS` must send `X-CSRF-Protection: 1`, including
+registration, login, and logout; missing or incorrect headers return `403` before
+the handler runs. Browser requests with an `Origin` must match `CORS_ORIGINS`
+exactly. List only trusted frontend origins (including a same-origin deployment's
+origin); wildcard and `null` origins are rejected. The header forces cross-origin
+browser requests through CORS preflight and is not a secret token.
+
+The shared frontend `apiRequest(path, options?)` sends cookies and adds the
+header automatically for mutations. For example:
+
+```ts
+await apiRequest('/auth/logout', { method: 'POST', auth: false });
+```
+
+CLI clients must also send the header. Safe requests and CORS preflights do not
+need it. The HttpOnly session cookie retains its `SameSite=Lax` protection.
+
 ```sh
 pnpm run dev
 ```

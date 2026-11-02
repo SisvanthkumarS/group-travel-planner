@@ -84,8 +84,16 @@ enforces the requirements in US-07 through US-10 and US-13 through US-16;
 eligible voter snapshots, current votes, vote history, and itinerary items.
 Proposal submission requires a description and non-negative estimated cost.
 The activity start must be in the future, its end must follow its start, and both
-must fall within the trip dates. Since trips have no timezone field, travel dates
-are interpreted as UTC calendar dates; activity timestamps must include an offset.
+must fall within the trip dates in the trip's IANA timezone (for example,
+`America/New_York`). Trip creation requires a valid `timezone`; trip create, list,
+and detail responses include it. Activity timestamps must include an offset, and
+the backend converts them to the trip timezone to validate local calendar dates.
+Timestamps are still stored as UTC instants; future-time checks, poll deadlines,
+and itinerary ordering compare instants, including across daylight-saving changes.
+Migration `0007` adds the timezone column and assigns `America/New_York` to existing
+trips, as agreed for the legacy data. Existing trips in other zones must have their
+intended timezone assigned explicitly; it cannot be inferred reliably from destinations. Clients
+must send the trip's timezone when creating trips and use it when displaying times.
 The 100-proposal limit includes withdrawn, rejected, and canceled proposals.
 
 Opening a poll snapshots all current trip participants, including the organizer

@@ -23,6 +23,7 @@ BODY = {
     "destination": " New York ",
     "start_date": "2026-11-01",
     "end_date": "2026-11-03",
+    "timezone": "America/New_York",
     "organizer_id": 999,
 }
 
@@ -66,7 +67,9 @@ def client(database, monkeypatch):
     previous = app.dependency_overrides.copy()
     app.dependency_overrides[get_session] = database_session
     try:
-        with TestClient(app, raise_server_exceptions=False) as client:
+        with TestClient(
+            app, raise_server_exceptions=False, headers={"X-CSRF-Protection": "1"}
+        ) as client:
             client.cookies.set("access_token", security.create_access_token(user_id))
             yield client
     finally:
@@ -81,12 +84,14 @@ def test_trip_and_organizer_are_committed_together(client, database):
     data = response.json()
     assert data["organizer_id"] == user_id
     assert data["name"] == "NYC Trip"
+    assert data["timezone"] == "America/New_York"
 
     # A new connection must see both rows after the request Session has closed.
     with Session(engine) as session:
         trip = session.get(Trip, data["trip_id"])
         member = session.get(TripMember, (data["trip_id"], user_id))
         assert trip is not None and trip.organizer_id == user_id
+        assert trip.timezone == "America/New_York"
         assert member is not None and member.role == "ORGANIZER"
         assert (
             session.scalar(

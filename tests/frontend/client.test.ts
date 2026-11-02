@@ -51,7 +51,10 @@ describe('apiRequest', () => {
 
     const [, init] = fetch.mock.calls[0];
     expect(init.method).toBe('POST');
-    expect(init.headers).toEqual({ 'Content-Type': 'application/json' });
+    expect(init.headers).toEqual({
+      'Content-Type': 'application/json',
+      'X-CSRF-Protection': '1',
+    });
     expect(init.body).toBe('{"name":"Lisbon"}');
   });
 
@@ -62,6 +65,30 @@ describe('apiRequest', () => {
       apiRequest('/trips/1', { method: 'DELETE' }),
     ).resolves.toBeUndefined();
   });
+
+  it.each(['POST', 'PUT', 'PATCH', 'DELETE'] as const)(
+    'sends CSRF protection for %s requests without a body',
+    async (method) => {
+      const fetch = stubFetch(new Response(null, { status: 204 }));
+      await apiRequest('/trips/1', { method });
+      expect(fetch.mock.calls[0][1]).toMatchObject({
+        method,
+        credentials: 'include',
+        headers: { 'X-CSRF-Protection': '1' },
+      });
+    },
+  );
+
+  it.each(['register', 'login', 'logout'])(
+    'protects the public %s endpoint',
+    async (action) => {
+      const fetch = stubFetch(new Response(null, { status: 204 }));
+      await apiRequest(`/auth/${action}`, { method: 'POST', auth: false });
+      expect(fetch.mock.calls[0][1].headers).toEqual({
+        'X-CSRF-Protection': '1',
+      });
+    },
+  );
 
   it('uses the FastAPI detail string as the error message', async () => {
     stubFetch(json({ detail: 'Only the Trip Organizer can do that.' }, 403));

@@ -99,7 +99,9 @@ def client(database, monkeypatch):
     previous = app.dependency_overrides.copy()
     app.dependency_overrides[get_session] = session_dependency
     try:
-        with TestClient(app, raise_server_exceptions=False) as client:
+        with TestClient(
+            app, raise_server_exceptions=False, headers={"X-CSRF-Protection": "1"}
+        ) as client:
             client.cookies.set(
                 "access_token", security.create_access_token(data["organizer"])
             )

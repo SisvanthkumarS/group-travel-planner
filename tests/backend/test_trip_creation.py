@@ -25,6 +25,7 @@ def test_commit_failure_rolls_back_both_writes():
         destination="New York",
         start_date=date(2026, 11, 1),
         end_date=date(2026, 11, 3),
+        timezone="America/New_York",
     )
     with pytest.raises(RuntimeError, match="Commit failed"):
         service.create_trip(request, 7)

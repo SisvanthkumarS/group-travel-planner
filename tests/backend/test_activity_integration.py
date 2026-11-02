@@ -2,7 +2,7 @@
 
 import os
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from importlib import import_module
 from threading import Barrier, Event
 from unittest.mock import patch
@@ -33,6 +33,107 @@ from backend.app.models import (
 from backend.app.repositories.ActivityRepository import ActivityRepository
 
 service_module = import_module("backend.app.services.ActivityService")
+
+
+@pytest.mark.parametrize(
+    "timezone,travel_date,starts_at,ends_at,invalid_field",
+    [
+        # Final-day evenings may already be tomorrow in UTC.
+        (
+            "America/New_York",
+            "2030-07-01",
+            "2030-07-02T02:00:00Z",
+            "2030-07-02T03:00:00Z",
+            None,
+        ),
+        (
+            "America/New_York",
+            "2030-01-01",
+            "2030-01-01T21:00:00-05:00",
+            "2030-01-01T22:00:00-05:00",
+            None,
+        ),
+        # DST skips an hour in spring and repeats one in autumn. Compare instants.
+        (
+            "America/New_York",
+            "2030-03-10",
+            "2030-03-10T01:30:00-05:00",
+            "2030-03-10T03:30:00-04:00",
+            None,
+        ),
+        (
+            "America/New_York",
+            "2030-11-03",
+            "2030-11-03T01:30:00-04:00",
+            "2030-11-03T01:15:00-05:00",
+            None,
+        ),
+        # UTC date is inside the trip, but the local start date is too early.
+        (
+            "America/New_York",
+            "2030-07-01",
+            "2030-07-01T03:00:00Z",
+            "2030-07-01T03:30:00Z",
+            "starts_at",
+        ),
+        # Local end date extends past the last travel day.
+        (
+            "America/New_York",
+            "2030-07-01",
+            "2030-07-02T03:30:00Z",
+            "2030-07-02T04:30:00Z",
+            "ends_at",
+        ),
+        # Positive offsets can place the first local day on the previous UTC day.
+        (
+            "Pacific/Kiritimati",
+            "2030-07-01",
+            "2030-06-30T10:30:00Z",
+            "2030-06-30T11:30:00Z",
+            None,
+        ),
+        ("UTC", "2030-07-01", "2030-07-01T22:00:00Z", "2030-07-01T23:00:00Z", None),
+    ],
+)
+def test_proposal_uses_trip_local_dates(
+    scenario,
+    timezone,
+    travel_date,
+    starts_at,
+    ends_at,
+    invalid_field,
+):
+    s = scenario
+    with s["factory"]() as session:
+        trip = session.get(Trip, s["trip"])
+        trip.timezone = timezone
+        trip.start_date = trip.end_date = date.fromisoformat(travel_date)
+        session.commit()
+
+    class BeforeTrip(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2029, 1, 1, tzinfo=UTC)
+
+    with patch.object(service_module, "datetime", BeforeTrip):
+        response = s["client"].post(
+            f"/api/v1/trips/{s['trip']}/proposals",
+            json=s["payload"] | {"starts_at": starts_at, "ends_at": ends_at},
+        )
+    if invalid_field:
+        assert response.status_code == 422, response.text
+        assert response.json()["detail"][0]["loc"] == ["body", invalid_field]
+        assert proposals(s) == []
+    else:
+        assert response.status_code == 201, response.text
+        with s["factory"]() as session:
+            saved = session.get(Proposal, response.json()["proposal_id"])
+            assert saved.starts_at.astimezone(UTC) == datetime.fromisoformat(
+                starts_at
+            ).astimezone(UTC)
+            assert saved.ends_at.astimezone(UTC) == datetime.fromisoformat(
+                ends_at
+            ).astimezone(UTC)
 
 
 @pytest.fixture
@@ -103,7 +204,9 @@ def scenario(monkeypatch):
         "deadline": (now + timedelta(hours=1)).isoformat(),
     }
     try:
-        with TestClient(app, raise_server_exceptions=False) as client:
+        with TestClient(
+            app, raise_server_exceptions=False, headers={"X-CSRF-Protection": "1"}
+        ) as client:
             data["client"] = client
             login(data, 0)
             yield data
@@ -398,7 +501,7 @@ def test_concurrent_creation_enforces_hundred_proposal_limit(scenario):
     barrier = Barrier(2)
 
     def submit():
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-CSRF-Protection": "1"})
         client.cookies.set("access_token", security.create_access_token(s["users"][0]))
         barrier.wait(timeout=10)
         try:
@@ -485,7 +588,7 @@ def test_scheduler_lifespan_recovers_overdue_poll_after_failed_approval(
     monkeypatch.setattr(poll_scheduler, "close_due_polls", scan)
     monkeypatch.setattr(app_settings, "poll_scheduler_enabled", True)
     monkeypatch.setattr(app_settings, "poll_scheduler_interval_seconds", 0.01)
-    with TestClient(app):
+    with TestClient(app, headers={"X-CSRF-Protection": "1"}):
         assert completed.wait(timeout=5), (
             "Lifespan did not schedule deadline processing"
         )
@@ -521,6 +624,7 @@ def test_itinerary_order_and_cross_trip_cancellation(scenario):
             "destination": "NYC",
             "start_date": datetime.now(UTC).date().isoformat(),
             "end_date": (datetime.now(UTC) + timedelta(days=10)).date().isoformat(),
+            "timezone": "UTC",
         },
     )
     assert response.status_code == 201, response.text
