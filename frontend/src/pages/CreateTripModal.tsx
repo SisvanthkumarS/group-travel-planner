@@ -6,7 +6,7 @@ import type { CreateTripRequest } from '../api/types';
 import { Field } from '../components/Field';
 import { Modal } from '../components/Modal';
 
-type Fields = CreateTripRequest;
+type Fields = Omit<CreateTripRequest, 'timezone'>;
 type Errors = Partial<Record<keyof Fields, string>>;
 
 export function validateTrip(f: Fields): Errors {
@@ -47,6 +47,7 @@ export function CreateTripModal({ onClose }: { onClose: () => void }) {
         ...fields,
         name: fields.name.trim(),
         destination: fields.destination.trim(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
       navigate(`/trips/${trip.trip_id}`);
     } catch (error) {
