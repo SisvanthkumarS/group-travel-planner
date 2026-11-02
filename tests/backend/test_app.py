@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-CSRF-Protection": "1"})
 
 
 def test_documentation_and_api_contract():

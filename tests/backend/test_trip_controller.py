@@ -44,7 +44,7 @@ def client(monkeypatch):
     previous = app.dependency_overrides.copy()
     app.dependency_overrides[get_session] = lambda: session
     try:
-        with TestClient(app) as client:
+        with TestClient(app, headers={"X-CSRF-Protection": "1"}) as client:
             yield client
     finally:
         app.dependency_overrides.clear()

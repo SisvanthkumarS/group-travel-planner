@@ -204,7 +204,9 @@ def scenario(monkeypatch):
         "deadline": (now + timedelta(hours=1)).isoformat(),
     }
     try:
-        with TestClient(app, raise_server_exceptions=False) as client:
+        with TestClient(
+            app, raise_server_exceptions=False, headers={"X-CSRF-Protection": "1"}
+        ) as client:
             data["client"] = client
             login(data, 0)
             yield data
@@ -499,7 +501,7 @@ def test_concurrent_creation_enforces_hundred_proposal_limit(scenario):
     barrier = Barrier(2)
 
     def submit():
-        client = TestClient(app)
+        client = TestClient(app, headers={"X-CSRF-Protection": "1"})
         client.cookies.set("access_token", security.create_access_token(s["users"][0]))
         barrier.wait(timeout=10)
         try:
@@ -586,7 +588,7 @@ def test_scheduler_lifespan_recovers_overdue_poll_after_failed_approval(
     monkeypatch.setattr(poll_scheduler, "close_due_polls", scan)
     monkeypatch.setattr(app_settings, "poll_scheduler_enabled", True)
     monkeypatch.setattr(app_settings, "poll_scheduler_interval_seconds", 0.01)
-    with TestClient(app):
+    with TestClient(app, headers={"X-CSRF-Protection": "1"}):
         assert completed.wait(timeout=5), (
             "Lifespan did not schedule deadline processing"
         )
