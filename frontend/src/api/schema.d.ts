@@ -367,6 +367,11 @@ export interface components {
              * Format: date
              */
             end_date: string;
+            /**
+             * Timezone
+             * @description IANA timezone used for the trip's calendar dates, e.g. America/New_York.
+             */
+            timezone: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
