@@ -57,7 +57,7 @@ Service = Annotated[ActivityService, Depends(get_activity_service)]
 def create_proposal(trip_id: Id, body: CreateProposalRequest, request: Request, service: Service):
     """Submit a PENDING proposal as a trip participant.
 
-    Activity times must be in the future and within the trip's UTC travel dates.
+    Activity times must be in the future and within the travel dates in the trip's timezone.
     Description and non-negative estimated cost are required. At most 100 proposals
     are allowed per trip, including withdrawn and canceled proposals.
     """

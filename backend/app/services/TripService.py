@@ -29,6 +29,7 @@ class TripService:
                 destination=request.destination,
                 start_date=request.start_date,
                 end_date=request.end_date,
+                timezone=request.timezone,
                 organizer_id=current_user_id,
             )
             created_trip = self.repository.add(trip)

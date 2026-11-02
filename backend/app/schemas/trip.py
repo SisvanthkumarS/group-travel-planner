@@ -1,7 +1,15 @@
 from datetime import date, datetime
 from typing import Annotated, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 NonBlankText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -12,6 +20,20 @@ class CreateTripRequest(BaseModel):
     destination: NonBlankText
     start_date: date
     end_date: date
+    timezone: NonBlankText = Field(
+        description="IANA timezone used for the trip's calendar dates, e.g. America/New_York."
+    )
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(
+                "timezone must be a valid IANA timezone, e.g. America/New_York."
+            ) from exc
+        return value
 
     @model_validator(mode="after")
     def validate_dates(self):
@@ -28,6 +50,7 @@ class TripResponse(BaseModel):
     destination: str
     start_date: date
     end_date: date
+    timezone: str
     organizer_id: int
 
 

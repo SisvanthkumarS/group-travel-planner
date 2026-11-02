@@ -287,7 +287,8 @@ paths:
       description: 'Submit a PENDING proposal as a trip participant.
 
 
-        Activity times must be in the future and within the trip''s UTC travel dates.
+        Activity times must be in the future and within the travel dates in the trip''s
+        timezone.
 
         Description and non-negative estimated cost are required. At most 100 proposals
 
@@ -763,12 +764,18 @@ components:
           type: string
           format: date
           title: End Date
+        timezone:
+          type: string
+          minLength: 1
+          title: Timezone
+          description: IANA timezone used for the trip's calendar dates, e.g. America/New_York.
       type: object
       required:
       - name
       - destination
       - start_date
       - end_date
+      - timezone
       title: CreateTripRequest
     HTTPValidationError:
       properties:
@@ -1147,6 +1154,9 @@ components:
           type: string
           format: date
           title: End Date
+        timezone:
+          type: string
+          title: Timezone
         organizer_id:
           type: integer
           title: Organizer Id
@@ -1162,6 +1172,7 @@ components:
       - destination
       - start_date
       - end_date
+      - timezone
       - organizer_id
       - members
       title: TripDetailResponse
@@ -1209,6 +1220,9 @@ components:
           type: string
           format: date
           title: End Date
+        timezone:
+          type: string
+          title: Timezone
         organizer_id:
           type: integer
           title: Organizer Id
@@ -1219,6 +1233,7 @@ components:
       - destination
       - start_date
       - end_date
+      - timezone
       - organizer_id
       title: TripResponse
     UserResponse:

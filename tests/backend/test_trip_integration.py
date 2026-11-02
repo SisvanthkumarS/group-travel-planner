@@ -23,6 +23,7 @@ BODY = {
     "destination": " New York ",
     "start_date": "2026-11-01",
     "end_date": "2026-11-03",
+    "timezone": "America/New_York",
     "organizer_id": 999,
 }
 
@@ -81,12 +82,14 @@ def test_trip_and_organizer_are_committed_together(client, database):
     data = response.json()
     assert data["organizer_id"] == user_id
     assert data["name"] == "NYC Trip"
+    assert data["timezone"] == "America/New_York"
 
     # A new connection must see both rows after the request Session has closed.
     with Session(engine) as session:
         trip = session.get(Trip, data["trip_id"])
         member = session.get(TripMember, (data["trip_id"], user_id))
         assert trip is not None and trip.organizer_id == user_id
+        assert trip.timezone == "America/New_York"
         assert member is not None and member.role == "ORGANIZER"
         assert (
             session.scalar(

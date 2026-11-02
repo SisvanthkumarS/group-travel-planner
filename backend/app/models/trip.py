@@ -14,6 +14,7 @@ class Trip(Base):
     destination: Mapped[str] = mapped_column(Text)
     start_date: Mapped[date]
     end_date: Mapped[date]
+    timezone: Mapped[str] = mapped_column(Text, server_default="UTC")
     organizer_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.user_id", ondelete="CASCADE")
     )
