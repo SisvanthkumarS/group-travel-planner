@@ -2,17 +2,23 @@ include:
   - ./compose.base.yml
 services:
   backend:
-    image: astral/uv:0.13.5-debian-slim
-    command: ['sleep', 'infinity']
-    working_dir: /opt/app/backend
+    build:
+      context: ..
+      dockerfile: docker/backend.dockerfile
+    working_dir: /opt/app
     environment:
       APP_NAME: ${APP_NAME}
       APP_ENV: ${APP_ENV}
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
-      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: ${REDIS_URL_DOCKER:-redis://default:${REDIS_PASSWORD}@redis:6379/0}
       JWT_SECRET: ${JWT_SECRET}
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: ${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      JWT_SESSION_MAX_DAYS: ${JWT_SESSION_MAX_DAYS:-30}
+      JWT_COOKIE_NAME: ${JWT_COOKIE_NAME:-access_token}
+      JWT_REFRESH_COOKIE_NAME: ${JWT_REFRESH_COOKIE_NAME:-refresh_token}
+      JWT_COOKIE_SECURE: ${JWT_COOKIE_SECURE:-false}
       CORS_ORIGINS: '["http://localhost:5173"]'
     ports:
       - '8000:8000'
@@ -23,6 +29,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/openapi.json', timeout=3)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
 
   frontend:
     image: node:26-alpine
@@ -36,6 +54,7 @@ services:
     working_dir: /opt/app
     environment:
       VITE_API_URL: http://localhost:8000/api/v1
+      HUSKY: '0'
     ports:
       - '5173:5173'
     volumes:
@@ -43,6 +62,24 @@ services:
       - ../package.json:/opt/app/package.json
       - ../pnpm-lock.yaml:/opt/app/pnpm-lock.yaml
       - ../pnpm-workspace.yaml:/opt/app/pnpm-workspace.yaml
+      - frontend_modules:/opt/app/node_modules
+      - frontend_workspace_modules:/opt/app/frontend/node_modules
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:5173').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+
+volumes:
+  frontend_modules:
+  frontend_workspace_modules:

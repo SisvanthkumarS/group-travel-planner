@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from backend.app.core.refresh_sessions import RefreshSessionStore
 from backend.app.core.security import create_access_token, hash_password, verify_password
 from backend.app.models.user import User
 from backend.app.repositories.AuthRepository import AuthRepository
@@ -14,12 +15,15 @@ from backend.app.schemas.auth import LoginRequest, RegisterRequest, UserResponse
 class LoginResult:
     user: UserResponse
     access_token: str
+    refresh_token: str
+    refresh_token_max_age: int
 
 
 class AuthService:
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, refresh_store: RefreshSessionStore | None = None):
         self.session = session
         self.repository = AuthRepository(session)
+        self.refresh_store = refresh_store
 
     def register(self, request: RegisterRequest) -> UserResponse:
         email = request.email.strip().lower()
@@ -84,7 +88,28 @@ class AuthService:
                 detail="Invalid login credentials.",
             )
 
+        if self.refresh_store is None:
+            raise RuntimeError("Refresh session store must be provided for login.")
+        access_token = create_access_token(user.user_id)
+        grant = self.refresh_store.create(user.user_id)
         return LoginResult(
             user=UserResponse.model_validate(user),
-            access_token=create_access_token(user.user_id),
+            access_token=access_token,
+            refresh_token=grant.token,
+            refresh_token_max_age=grant.max_age,
+        )
+
+    def refresh(self, token: str) -> LoginResult:
+        if self.refresh_store is None:
+            raise RuntimeError("Refresh session store must be provided for refresh.")
+        grant = self.refresh_store.renew(token)
+        user = self.session.get(User, grant.user_id)
+        if user is None:
+            self.refresh_store.revoke(token)
+            raise HTTPException(status_code=401, detail="Authentication required.")
+        return LoginResult(
+            user=UserResponse.model_validate(user),
+            access_token=create_access_token(user.user_id, max_age_seconds=grant.max_age),
+            refresh_token=grant.token,
+            refresh_token_max_age=grant.max_age,
         )

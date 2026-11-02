@@ -17,7 +17,7 @@ Acceptance adds the recipient as a member atomically and enforces the eight-pers
 
 For frontend integration, see the [Backend API Integration Guide](docs/backend-api-guide.md)
 for request fields, authentication requirements, response examples, and error handling
-for all ten Authentication, Trip Management, and Invitation endpoints.
+for Authentication, Trip Management, Invitations, and session renewal.
 
 ## Setup
 
@@ -30,11 +30,45 @@ uv installs Python 3.15 when needed. Docker Compose v2 is needed for the full st
 pnpm install --frozen-lockfile
 uv sync --project backend --python 3.15 --frozen
 cp .env.example .env
+cp docker/.env.example docker/.env
 ```
 
 On PowerShell, use `Copy-Item .env.example .env` for the last command. Keep existing
 local environment values if you already have `.env`. `pnpm install --frozen-lockfile` installs Husky hooks.
 Ensure `uv` and Node are on PATH in the terminal or Git client used for commits.
+
+## Redis and refresh sessions
+
+Login sets an `access_token` JWT and an opaque HttpOnly `refresh_token` cookie.
+Redis stores only a hash of the refresh credential. Protected endpoints renew
+cookies automatically when access expires or is within 60 seconds of expiry;
+`POST /api/v1/auth/refresh` also supports explicit renewal. Defaults are a 30-minute
+access token, 7-day sliding idle timeout, and 30-day absolute session deadline.
+Logout clears both cookies and deletes the current refresh session. A copied
+access JWT remains valid until expiry; it is not blacklisted. An existing user
+must log in once after upgrading to obtain both new cookies.
+
+Set `REDIS_URL` for processes on the host and `REDIS_URL_DOCKER` for the backend
+container. For a remote server, both can use the same URL. Keep credentials in
+ignored `.env` files, never documentation or Git. Use `rediss://` if the server
+provides TLS. Redis errors return 503 for login/renewal; valid access JWTs continue
+working. Logout clears cookies even if Redis is unavailable, but returns 503
+because server-side revocation could not be confirmed.
+
+The development Compose files under `docker/` include a local Redis service.
+Compose reads `docker/.env`; host processes read the root `.env`. Keep database
+credentials consistent between them. For an existing local setup, preserve the
+current credentials rather than overwriting either file. To start Redis only:
+
+```sh
+docker compose --env-file docker/.env -f docker/compose.dev.yml up -d redis
+```
+
+Set `REDIS_URL_DOCKER` in `docker/.env` to use a remote Redis for authentication. After dependency or
+environment changes, rebuild/recreate the backend; source changes still reload.
+Refresh credentials stay stable within a browser session to support parallel
+requests, while Redis TTL renewals use WATCH/MULTI to avoid recreating a session
+revoked concurrently. Each browser login has an independent refresh session.
 
 ## Environment
 
@@ -51,7 +85,11 @@ values are disposable local defaults, not deployment credentials.
 | `CORS_ORIGINS`                                                       | JSON array of allowed browser origins                                 |
 | `VITE_API_URL`                                                       | Public frontend API base URL, normally `http://localhost:8000/api/v1` |
 
-Compose sets the backend database hostname to `db`. If you change the database
+Additional settings: `REDIS_URL`, `REDIS_URL_DOCKER`, `REDIS_KEY_PREFIX`,
+`REDIS_TIMEOUT_SECONDS`, `JWT_REFRESH_COOKIE_NAME`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`,
+`JWT_SESSION_MAX_DAYS`, and `JWT_REFRESH_WINDOW_SECONDS`. See `.env.example`.
+
+Compose sets the backend database hostname to `postgres` and internal port to `5432`. If you change the database
 credentials or port, update the host `DATABASE_URL` too. URL-encode special
 characters in connection URL credentials. Never put secrets in `VITE_*` values.
 Use independently generated secrets and a deployment-specific configuration for
@@ -81,14 +119,28 @@ need it. The HttpOnly session cookie retains its `SameSite=Lax` protection.
 pnpm run dev
 ```
 
-This builds and starts PostgreSQL, runs Alembic migrations once the database is
+The backend image is built on first use; rebuild it after dependency changes.
+This starts PostgreSQL and Redis, runs Alembic migrations once the database is
 healthy, then starts FastAPI and Vite with hot reload. Open the frontend at
 <http://localhost:5173>. Source edits under `frontend/src` and `backend/app` reload
-automatically. Rebuild after dependency changes. Stop with `docker compose down`;
-the database volume persists. `docker compose down -v` also deletes local data.
+automatically. Rebuild the backend after dependency changes. Stop with
+`docker compose --env-file docker/.env -f docker/compose.dev.yml stop`;
+the database volume persists. Use the same Compose file, environment file, and
+project name for subsequent commands; removing database volumes deletes their data.
+
+The local PyCharm `Docker - Full Stack` launcher must use
+`docker/compose.dev.yml` and `docker/.env`, not the removed root `compose.yaml`.
+Start with the same Compose project name on every run to reuse the database volume.
+The backend now runs the image's migration/Uvicorn startup script instead of
+`sleep infinity`. Frontend dependencies use container volumes so Linux binaries
+do not overwrite the host's node_modules. Rebuild backend dependencies with:
+
+```sh
+docker compose --env-file docker/.env -f docker/compose.dev.yml build backend
+```
 
 To run application processes directly, start PostgreSQL separately (or run
-`docker compose up -d db`), then use separate terminals:
+`docker compose --env-file docker/.env -f docker/compose.dev.yml up -d postgres`), then use separate terminals:
 
 ```sh
 pnpm run db:migrate
@@ -124,7 +176,7 @@ uv run --project backend alembic -c backend/alembic.ini downgrade -1
 ```
 
 Review generated migrations before applying them. In Compose, run
-`docker compose run --rm migrate` to apply additional migrations.
+`docker compose --env-file docker/.env -f docker/compose.dev.yml exec backend alembic -c /opt/app/backend/alembic.ini upgrade head` to apply additional migrations.
 
 ## API documentation
 

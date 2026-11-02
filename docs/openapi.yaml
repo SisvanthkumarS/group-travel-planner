@@ -35,8 +35,8 @@ paths:
       tags:
       - Authentication
       summary: Login
-      description: Sign in with email or a unique username and set an HttpOnly JWT
-        cookie.
+      description: Set an access JWT and a Redis-backed opaque refresh credential
+        in HttpOnly cookies.
       operationId: login_api_v1_auth_login_post
       requestBody:
         content:
@@ -53,23 +53,46 @@ paths:
                 $ref: '#/components/schemas/UserResponse'
         '401':
           description: Invalid login credentials.
+        '503':
+          description: Redis authentication storage unavailable.
         '422':
           description: Validation Error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/refresh:
+    post:
+      tags:
+      - Authentication
+      summary: Refresh
+      description: Renew the access token and sliding session using the refresh cookie;
+        no body required.
+      operationId: refresh_api_v1_auth_refresh_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Refresh credential absent, invalid, revoked or expired.
+        '503':
+          description: Redis authentication storage unavailable.
   /api/v1/auth/logout:
     post:
       tags:
       - Authentication
       summary: Logout
-      description: Clear the browser cookie; a previously issued JWT is not revoked
-        server-side.
+      description: Revoke this browser's refresh session and clear both authentication
+        cookies.
       operationId: logout_api_v1_auth_logout_post
       responses:
         '204':
           description: Successful Response
+        '503':
+          description: Cookies cleared but Redis revocation failed.
   /api/v1/trips:
     get:
       tags:

@@ -13,6 +13,7 @@ dependencies = [
   "email-validator>=2.3.0",
   "pyjwt>=2.15.1",
   "tzdata",
+  "redis>=8.1.0",
 ]
 
 [dependency-groups]
@@ -21,6 +22,7 @@ dev = [
     "httpx2>=2.16.0,<3",
     "ruff>=0.17.1,<1",
     "pyyaml>=6.0.3,<7",
+    "fakeredis>=2.40.0",
 ]
 
 [tool.pytest.ini_options]

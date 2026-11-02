@@ -12,6 +12,7 @@ def test_documentation_and_api_contract():
         "/api/v1/auth/register",
         "/api/v1/auth/login",
         "/api/v1/auth/logout",
+        "/api/v1/auth/refresh",
         "/api/v1/trips",
         "/api/v1/trips/{trip_id}",
         "/api/v1/trips/{trip_id}/invitations",
