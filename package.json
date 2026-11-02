@@ -22,6 +22,7 @@
     "build": "pnpm --filter frontend build",
     "openapi": "uv run --project backend python backend/scripts/export_openapi.py",
     "openapi:check": "uv run --project backend python backend/scripts/export_openapi.py --check",
+    "openapi:types": "pnpm --filter frontend openapi:types",
     "db:migrate": "uv run --project backend alembic -c backend/alembic.ini upgrade head"
   },
   "devDependencies": {
