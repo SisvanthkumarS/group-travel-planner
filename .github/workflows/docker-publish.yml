@@ -2,7 +2,7 @@ name: Build and push Docker images
 
 on:
   push:
-    branches: [hc-dev]
+    branches: [main, hc-dev]
   workflow_dispatch:
 
 permissions:

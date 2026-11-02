@@ -11,13 +11,21 @@ RUN /opt/venv/bin/python -m pip install --no-cache-dir -r /tmp/requirements.txt
 FROM python:3.15-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    APP_NAME="Group Travel Planner" \
+    APP_ENV="development" \
     PATH="/opt/venv/bin:$PATH"
+
 RUN groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --create-home \
         --shell /usr/sbin/nologin app
-WORKDIR /workspace/backend
+
+WORKDIR /opt/app
 COPY --from=dependencies /opt/venv /opt/venv
-COPY --chown=app:app backend/ ./
+COPY --chown=app:app backend/ ./backend/
+COPY --chown=app:app docker/backend_startup.sh /startup.sh
+
 USER app:app
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+WORKDIR /
+
+CMD ["/bin/sh", "/startup.sh"]
