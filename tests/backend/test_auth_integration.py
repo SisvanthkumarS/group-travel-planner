@@ -12,12 +12,13 @@ from sqlalchemy.orm import Session
 from backend.app.core import security
 from backend.app.core.config import Settings, get_settings
 from backend.app.core.database import get_session
+from backend.app.core.refresh_sessions import get_refresh_store
 from backend.app.main import app
 from backend.app.repositories.AuthRepository import AuthRepository
 
 
 @pytest.fixture
-def client(monkeypatch):
+def client(monkeypatch, refresh_store):
     url = os.environ.get("TEST_DATABASE_URL")
     if not url:
         pytest.skip("TEST_DATABASE_URL is required for PostgreSQL integration tests")
@@ -38,6 +39,7 @@ def client(monkeypatch):
         previous = app.dependency_overrides.copy()
         app.dependency_overrides[get_session] = isolated_session
         app.dependency_overrides[get_settings] = lambda: settings
+        app.dependency_overrides[get_refresh_store] = lambda: refresh_store
         try:
             with TestClient(app) as client:
                 yield client

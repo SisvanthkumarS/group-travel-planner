@@ -17,7 +17,7 @@ Acceptance adds the recipient as a member atomically and enforces the eight-pers
 
 For frontend integration, see the [Backend API Integration Guide](docs/backend-api-guide.md)
 for request fields, authentication requirements, response examples, and error handling
-for all ten Authentication, Trip Management, and Invitation endpoints.
+for Authentication, Trip Management, Invitations, and session renewal.
 
 ## Setup
 
@@ -36,6 +36,37 @@ On PowerShell, use `Copy-Item .env.example .env` for the last command. Keep exis
 local environment values if you already have `.env`. `pnpm install --frozen-lockfile` installs Husky hooks.
 Ensure `uv` and Node are on PATH in the terminal or Git client used for commits.
 
+## Redis and refresh sessions
+
+Login sets an `access_token` JWT and an opaque HttpOnly `refresh_token` cookie.
+Redis stores only a hash of the refresh credential. Protected endpoints renew
+cookies automatically when access expires or is within 60 seconds of expiry;
+`POST /api/v1/auth/refresh` also supports explicit renewal. Defaults are a 30-minute
+access token, 7-day sliding idle timeout, and 30-day absolute session deadline.
+Logout clears both cookies and deletes the current refresh session. A copied
+access JWT remains valid until expiry; it is not blacklisted. An existing user
+must log in once after upgrading to obtain both new cookies.
+
+Set `REDIS_URL` for processes on the host and `REDIS_URL_DOCKER` for the backend
+container. For a remote server, both can use the same URL. Keep credentials in
+ignored `.env` files, never documentation or Git. Use `rediss://` if the server
+provides TLS. Redis errors return 503 for login/renewal; valid access JWTs continue
+working. Logout clears cookies even if Redis is unavailable, but returns 503
+because server-side revocation could not be confirmed.
+
+The root Compose file includes an optional local Redis service. With the local
+URLs from `.env.example`, run:
+
+```sh
+docker compose --profile local-redis up -d redis
+```
+
+For a remote Redis URL, this local service is unnecessary. After dependency or
+environment changes, rebuild/recreate the backend; source changes still reload.
+Refresh credentials stay stable within a browser session to support parallel
+requests, while Redis TTL renewals use WATCH/MULTI to avoid recreating a session
+revoked concurrently. Each browser login has an independent refresh session.
+
 ## Environment
 
 `.env.example` documents all variables; `.env` is ignored by Git. The supplied
@@ -50,6 +81,10 @@ values are disposable local defaults, not deployment credentials.
 | `JWT_COOKIE_NAME`, `JWT_COOKIE_SECURE`                               | Cookie name and HTTPS-only flag; enable Secure for HTTPS deployments  |
 | `CORS_ORIGINS`                                                       | JSON array of allowed browser origins                                 |
 | `VITE_API_URL`                                                       | Public frontend API base URL, normally `http://localhost:8000/api/v1` |
+
+Additional settings: `REDIS_URL`, `REDIS_URL_DOCKER`, `REDIS_KEY_PREFIX`,
+`REDIS_TIMEOUT_SECONDS`, `JWT_REFRESH_COOKIE_NAME`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`,
+`JWT_SESSION_MAX_DAYS`, and `JWT_REFRESH_WINDOW_SECONDS`. See `.env.example`.
 
 Compose sets the backend database hostname to `db`. If you change the database
 credentials or port, update the host `DATABASE_URL` too. URL-encode special

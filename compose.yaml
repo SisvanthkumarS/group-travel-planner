@@ -1,4 +1,26 @@
 services:
+  redis:
+    image: redis:7-alpine
+    profiles: ['local-redis']
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local-redis-development-only}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -qx PONG',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   db:
     image: postgres:17-alpine
     environment:
@@ -32,6 +54,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: ${REDIS_URL_DOCKER:-${REDIS_URL:-redis://:local-redis-development-only@redis:6379/0}}
     ports:
       - '127.0.0.1:8000:8000'
     volumes:
@@ -80,3 +103,4 @@ services:
       start_period: 10s
 volumes:
   postgres_data:
+  redis_data:

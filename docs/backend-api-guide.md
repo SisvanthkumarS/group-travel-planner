@@ -2,8 +2,8 @@
 
 Authentication, Trip Management, and Invitations · API version `0.1.0`
 
-Last reviewed: October 29, 2026. This guide describes the implementation on branch
-`KC` at commit `9a6b73f`. Examples use fictional accounts and illustrative IDs and
+Last reviewed: November 2, 2026. This guide describes the implementation on branch
+`KC`, including Redis-backed refresh sessions. Examples use fictional accounts and illustrative IDs and
 timestamps; replace IDs with values returned by your own requests.
 
 ## 1. Connection and request conventions
@@ -44,12 +44,36 @@ frontend and API use different origins. The default permitted frontend origin is
 `http://localhost:5173`. Use `localhost` consistently for local development; an
 origin such as `http://127.0.0.1:5173` needs its own CORS configuration.
 
-The default cookie settings are `HttpOnly`, `SameSite=Lax`, `Path=/`,
-`Secure=false`, with a 30-minute lifetime. Cookie name, Secure setting, token
-lifetime, and allowed origins are configurable. There is currently no refresh
-endpoint. On an expired session, ask the user to log in again. A deployment using
-different sites may require additional cookie and CORS configuration; the local
-settings are not a cross-site deployment contract.
+Both credentials use HttpOnly cookies with `SameSite=Lax` and `Path=/` (so the
+backend can renew sessions on business requests). `Secure=false` is the local
+default; enable it for HTTPS deployment. Default cookie names and lifetimes:
+
+| Cookie          | Format                               | Lifetime                                                  |
+| --------------- | ------------------------------------ | --------------------------------------------------------- |
+| `access_token`  | Signed JWT, `token_type=access`      | 30 minutes                                                |
+| `refresh_token` | Random opaque credential (not a JWT) | 7-day sliding idle timeout; 30-day absolute session limit |
+
+The filter automatically renews the cookies when access is missing, invalid,
+expired, or within 60 seconds of expiry, provided the refresh session is valid.
+Frontend code still only needs `credentials: "include"`; no token storage or
+expiry timer is required. Renewal extends the Redis session's idle timeout and
+refresh-cookie lifetime, capped at the original 30-day deadline. Passive time on
+a page with no API requests does not renew a session.
+
+`POST /auth/refresh` can also renew the cookies explicitly. A refresh credential
+is stable within one browser session so parallel requests do not invalidate each
+other. Redis stores its SHA-256 hash, user ID, and absolute deadline, not the raw
+credential. Session expiry or logout prevents further refreshes. Both cookies and
+all durations are configurable. On 401 after refresh expiry/revocation, ask the
+user to log in again. On 503, show a temporary failure and allow retry; do not
+interpret it as invalid credentials.
+
+Redis is required for login and renewal. Valid access JWTs continue working during
+a Redis outage, including when a proactive renewal fails. Logout revokes the
+refresh session but does not blacklist a copied access JWT; it remains valid until
+its own expiry. Cross-site deployments may require cookie and CORS settings beyond
+the local defaults. Existing users must log in once after this upgrade to obtain
+the new refresh cookie and typed access JWT.
 
 ### Browser request helper
 
@@ -92,18 +116,21 @@ or CORS failures. Do not call `response.json()` on a successful `204` response.
 
 ## 3. Endpoint overview
 
-| #   | Method | Path                           | Authentication / permission               | Success                     |
-| --- | ------ | ------------------------------ | ----------------------------------------- | --------------------------- |
-| 1   | POST   | `/auth/register`               | Public                                    | `201`, user object          |
-| 2   | POST   | `/auth/login`                  | Public                                    | `200`, user object + cookie |
-| 3   | POST   | `/auth/logout`                 | Public; cookie optional                   | `204`, no body              |
-| 4   | POST   | `/trips`                       | Logged-in user                            | `201`, trip object          |
-| 5   | GET    | `/trips`                       | Logged-in user; own memberships only      | `200`, trip array           |
-| 6   | GET    | `/trips/{trip_id}`             | Member of this trip                       | `200`, trip + members       |
-| 7   | DELETE | `/trips/{trip_id}`             | Organizer of this trip                    | `204`, no body              |
-| 8   | POST   | `/trips/{trip_id}/invitations` | Organizer of this trip                    | `201`, invitation object    |
-| 9   | GET    | `/invitations`                 | Logged-in user; received invitations only | `200`, invitation array     |
-| 10  | PATCH  | `/invitations`                 | Recipient of the invitation               | `200`, updated invitation   |
+| #   | Method | Path                           | Authentication / permission               | Success                          |
+| --- | ------ | ------------------------------ | ----------------------------------------- | -------------------------------- |
+| 1   | POST   | `/auth/register`               | Public                                    | `201`, user object               |
+| 2   | POST   | `/auth/login`                  | Public                                    | `200`, user object + two cookies |
+| 3   | POST   | `/auth/logout`                 | Public; cookie optional                   | `204`, no body                   |
+| 4   | POST   | `/trips`                       | Logged-in user                            | `201`, trip object               |
+| 5   | GET    | `/trips`                       | Logged-in user; own memberships only      | `200`, trip array                |
+| 6   | GET    | `/trips/{trip_id}`             | Member of this trip                       | `200`, trip + members            |
+| 7   | DELETE | `/trips/{trip_id}`             | Organizer of this trip                    | `204`, no body                   |
+| 8   | POST   | `/trips/{trip_id}/invitations` | Organizer of this trip                    | `201`, invitation object         |
+| 9   | GET    | `/invitations`                 | Logged-in user; received invitations only | `200`, invitation array          |
+| 10  | PATCH  | `/invitations`                 | Recipient of the invitation               | `200`, updated invitation        |
+
+Additional endpoint: **POST `/auth/refresh`**, authenticated by the refresh cookie;
+returns `200` with the user object and renewed cookies, or `401` / `503`.
 
 ## 4. Authentication
 
@@ -201,7 +228,7 @@ validation, even if it will not be used for lookup.
 }
 ```
 
-The HTTP response also sets the authentication cookie. The JSON body contains no
+The HTTP response also sets both the access and refresh cookies. The JSON body contains no
 `access_token` field. Keep the returned user object as UI state if needed; cookie
 handling is automatic when browser credentials are enabled.
 
@@ -219,10 +246,50 @@ handling is automatic when browser credentials are enabled.
 **Request:** No path parameters, query parameters, or body. Include browser
 credentials so the matching cookie can be cleared.
 
-**Success response:** Empty body. The response expires the authentication cookie.
-Calling logout without an active session also returns 204. Clear the frontend's
+**Success response:** Empty body. The response expires both authentication cookies and revokes this browser's Redis refresh session.
+Calling logout without a refresh cookie or after revocation also returns 204. Clear the frontend's
 cached user/session state after success. Logout removes the browser cookie; it
-does not revoke an already issued JWT server-side before its expiry.
+does not revoke an already issued access JWT server-side before its expiry.
+If Redis revocation fails, logout still clears both cookies but returns 503; the
+server-side refresh session may remain valid until its TTL. A retry with the
+original refresh cookie is needed to confirm server-side revocation.
+
+### 4.4 Refresh the session explicitly
+
+**`POST /auth/refresh`** · Valid refresh cookie required · Success: **200 OK**
+
+**Request:** No body or parameters. Send cookies with `credentials: "include"`.
+The access token may be absent or expired.
+
+```javascript
+const user = await apiRequest('/auth/refresh', { method: 'POST' });
+```
+
+The response has the same user-object shape as login and registration:
+
+```json
+{
+  "user_name": "KC",
+  "user_id": 7,
+  "email": "kc@example.com",
+  "created_at": "2026-10-29T14:00:00Z"
+}
+```
+
+Both cookies are set again; neither credential appears in the JSON body. Responses
+that issue or clear authentication cookies include `Cache-Control: no-store`.
+This endpoint is optional for ordinary API use because protected routes perform
+renewal automatically, even on explicit 204 or business-error responses.
+
+| Status | `detail` / cause                                                                                |
+| ------ | ----------------------------------------------------------------------------------------------- |
+| 401    | `Invalid or expired refresh token.` — missing, invalid, expired, or revoked session             |
+| 401    | `Authentication required.` — account no longer exists                                           |
+| 503    | `Authentication service temporarily unavailable. Please retry.` — Redis error; `Retry-After: 5` |
+
+Login can also return this 503 error; a failed login does not issue new cookies.
+Protected endpoints can return 503 if access has expired and Redis renewal is
+unavailable. Do not redirect to login solely because of a 503 response.
 
 ## 5. Trip Management
 

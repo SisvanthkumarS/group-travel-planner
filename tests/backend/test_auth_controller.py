@@ -64,7 +64,12 @@ def test_controller_delegates_and_sets_cookie_only_after_success(client):
 
         def login(self, request):
             assert request.email == user.email
-            return LoginResult(user=user, access_token="test-token")
+            return LoginResult(
+                user=user,
+                access_token="test-token",
+                refresh_token="test-refresh",
+                refresh_token_max_age=604800,
+            )
 
     app.dependency_overrides[get_auth_service] = FakeAuthService
     payload = {"user_name": "KC", "email": " user@example.com ", "password": "example"}

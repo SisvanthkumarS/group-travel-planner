@@ -34,8 +34,8 @@ def user():
 
 
 @pytest.fixture
-def service():
-    service = AuthService(Mock(spec=Session))
+def service(refresh_store):
+    service = AuthService(Mock(spec=Session), refresh_store)
     service.repository = Mock(spec=AuthRepository)
     return service
 
@@ -140,7 +140,12 @@ def test_token_expiry_matches_configuration(jwt_settings):
 )
 def test_invalid_tokens_return_401(jwt_settings, case):
     now = datetime.now(UTC)
-    claims = {"sub": "123", "iat": now, "exp": now + timedelta(minutes=30)}
+    claims = {
+        "sub": "123",
+        "iat": now,
+        "exp": now + timedelta(minutes=30),
+        "token_type": "access",
+    }
     key, algorithm = jwt_settings.jwt_secret, "HS256"
     if case == "expired":
         claims["exp"] = now - timedelta(minutes=1)
