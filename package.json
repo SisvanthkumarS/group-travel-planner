@@ -13,7 +13,7 @@
   },
   "scripts": {
     "prepare": "husky",
-    "dev": "docker compose up --build",
+    "dev": "docker compose --env-file docker/.env -f docker/compose.dev.yml up -d",
     "dev:frontend": "pnpm --filter frontend dev",
     "dev:backend": "uv run --project backend uvicorn backend.app.main:app --reload",
     "lint": "eslint . && prettier --check . && uv run --project backend ruff check backend tests/backend && uv run --project backend ruff format --check backend tests/backend",
@@ -22,6 +22,7 @@
     "build": "pnpm --filter frontend build",
     "openapi": "uv run --project backend python backend/scripts/export_openapi.py",
     "openapi:check": "uv run --project backend python backend/scripts/export_openapi.py --check",
+    "openapi:types": "pnpm --filter frontend openapi:types",
     "db:migrate": "uv run --project backend alembic -c backend/alembic.ini upgrade head"
   },
   "devDependencies": {

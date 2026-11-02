@@ -1,6 +1,7 @@
 pnpm-lock.yaml
 backend/uv.lock
 docs/openapi.yaml
+frontend/src/api/schema.d.ts
 node_modules
 frontend/dist
 **/.venv

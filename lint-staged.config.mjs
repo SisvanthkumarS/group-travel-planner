@@ -1,6 +1,6 @@
 export default {
   'frontend/**/*.{ts,tsx,js,jsx}': [
-    'eslint --max-warnings=0',
+    'eslint --max-warnings=0 --no-warn-ignored',
     'prettier --write',
   ],
   'frontend/**/*.{json,css,html}': 'prettier --write',

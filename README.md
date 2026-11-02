@@ -15,6 +15,10 @@ existing members and duplicate pending invitations are rejected. Users can list 
 invitations they have received, newest first, and accept or decline pending invitations.
 Acceptance adds the recipient as a member atomically and enforces the eight-person trip limit.
 
+For frontend integration, see the [Backend API Integration Guide](docs/backend-api-guide.md)
+for request fields, authentication requirements, response examples, and error handling
+for all ten Authentication, Trip Management, and Invitation endpoints.
+
 ## Setup
 
 Install Node.js 22.12+, [pnpm](https://pnpm.io/installation), and
@@ -63,11 +67,11 @@ exactly. List only trusted frontend origins (including a same-origin deployment'
 origin); wildcard and `null` origins are rejected. The header forces cross-origin
 browser requests through CORS preflight and is not a secret token.
 
-The shared frontend `apiRequest(path, token?, options?)` sends cookies and adds the
+The shared frontend `apiRequest(path, options?)` sends cookies and adds the
 header automatically for mutations. For example:
 
 ```ts
-await apiRequest('/auth/logout', undefined, { method: 'POST' });
+await apiRequest('/auth/logout', { method: 'POST', auth: false });
 ```
 
 CLI clients must also send the header. Safe requests and CORS preflights do not
