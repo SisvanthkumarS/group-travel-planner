@@ -56,13 +56,17 @@ export async function apiRequest<T>(
   path: string,
   { method = 'GET', body, signal, auth = true }: RequestOptions = {},
 ): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    headers['X-CSRF-Protection'] = '1';
+  }
   let response: Response;
   try {
     response = await fetch(`${baseUrl}${path}`, {
       method,
       credentials: 'include',
-      headers:
-        body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: Object.keys(headers).length ? headers : undefined,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal,
     });

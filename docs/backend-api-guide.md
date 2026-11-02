@@ -31,6 +31,12 @@ which user performs an action. The backend derives the acting user from the JWT
 cookie. Unrecognized fields are currently ignored by the request models; do not
 rely on them changing server behavior.
 
+All POST, PUT, PATCH, and DELETE requests, including login, register, logout,
+and refresh, must include `X-CSRF-Protection: 1`. If an Origin header is present,
+it must match an allowed CORS origin. Missing/invalid CSRF headers or an untrusted
+origin return 403 with `{"detail":"CSRF validation failed."}` before route logic.
+GET/HEAD/OPTIONS do not require this header. The helper below sends it automatically.
+
 ## 2. Browser authentication
 
 Registration creates an account but does **not** log the user in. Call login
@@ -81,15 +87,15 @@ the new refresh cookie and typed access JWT.
 const API_BASE = 'http://localhost:8000/api/v1';
 
 async function apiRequest(path, { method = 'GET', body } = {}) {
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method))
+    headers['X-CSRF-Protection'] = '1';
   const response = await fetch(`${API_BASE}${path}`, {
     method,
     credentials: 'include',
-    ...(body !== undefined
-      ? {
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        }
-      : {}),
+    headers,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
 
   // Logout and trip deletion return no JSON body.
@@ -299,13 +305,15 @@ unavailable. Do not redirect to login solely because of a 503 response.
 
 #### Request fields
 
-| Field         | JSON type | Required | Rules                                                           |
-| ------------- | --------- | -------- | --------------------------------------------------------------- |
-| `name`        | string    | Yes      | Surrounding whitespace trimmed; must not be blank               |
-| `destination` | string    | Yes      | Surrounding whitespace trimmed; must not be blank               |
-| `start_date`  | string    | Yes      | Valid date; send `YYYY-MM-DD`                                   |
-| `end_date`    | string    | Yes      | Valid date; send `YYYY-MM-DD`; must be on or after `start_date` |
+| Field         | JSON type | Required | Rules                                                                       |
+| ------------- | --------- | -------- | --------------------------------------------------------------------------- |
+| `name`        | string    | Yes      | Surrounding whitespace trimmed; must not be blank                           |
+| `destination` | string    | Yes      | Surrounding whitespace trimmed; must not be blank                           |
+| `start_date`  | string    | Yes      | Valid date; send `YYYY-MM-DD`                                               |
+| `end_date`    | string    | Yes      | Valid date; send `YYYY-MM-DD`; must be on or after `start_date`             |
+| `timezone`    | string    | Yes      | Valid IANA timezone, e.g. `America/New_York`; required when creating a trip |
 
+The new `timezone` field is required; older clients that omit it receive 422.
 Same-day trips are allowed. No future-date restriction is currently implemented.
 Do not submit `organizer_id` or an initial member list. The logged-in user becomes
 the Organizer and is added to `trip_members` automatically.
@@ -317,7 +325,8 @@ the Organizer and is added to `trip_members` automatically.
   "name": "NYC Weekend",
   "destination": "New York City",
   "start_date": "2026-11-15",
-  "end_date": "2026-11-17"
+  "end_date": "2026-11-17",
+  "timezone": "America/New_York"
 }
 ```
 
@@ -330,6 +339,7 @@ the Organizer and is added to `trip_members` automatically.
   "destination": "New York City",
   "start_date": "2026-11-15",
   "end_date": "2026-11-17",
+  "timezone": "America/New_York",
   "organizer_id": 7
 }
 ```
@@ -358,6 +368,7 @@ Results are ordered by `start_date` ascending, then `trip_id` ascending.
     "destination": "New York City",
     "start_date": "2026-11-15",
     "end_date": "2026-11-17",
+    "timezone": "America/New_York",
     "organizer_id": 7
   }
 ]
@@ -388,6 +399,7 @@ Organizer or Member; simply receiving an invitation is insufficient.
   "destination": "New York City",
   "start_date": "2026-11-15",
   "end_date": "2026-11-17",
+  "timezone": "America/New_York",
   "organizer_id": 7,
   "members": [
     {
@@ -664,6 +676,7 @@ does not consume the invitation: its status stays `PENDING`.
 | `destination`  | string    | Destination text                                                                          |
 | `start_date`   | string    | Start date (`YYYY-MM-DD`)                                                                 |
 | `end_date`     | string    | End date (`YYYY-MM-DD`)                                                                   |
+| `timezone`     | string    | IANA timezone used to interpret the trip calendar dates                                   |
 | `organizer_id` | integer   | Organizer's user ID                                                                       |
 | `members`      | array     | Only on trip-details responses; each item has `user_id`, `user_name`, `role`, `joined_at` |
 
@@ -720,7 +733,9 @@ example, requesting `GET /trips/0` with a valid login produces:
       "loc": ["path", "trip_id"],
       "msg": "Input should be greater than 0",
       "input": 0,
-      "ctx": { "gt": 0 }
+      "ctx": {
+        "gt": 0
+      }
     }
   ]
 }

@@ -41,7 +41,7 @@ def client(monkeypatch, refresh_store):
         app.dependency_overrides[get_settings] = lambda: settings
         app.dependency_overrides[get_refresh_store] = lambda: refresh_store
         try:
-            with TestClient(app) as client:
+            with TestClient(app, headers={"X-CSRF-Protection": "1"}) as client:
                 yield client
         finally:
             app.dependency_overrides.clear()

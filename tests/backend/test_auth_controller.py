@@ -17,7 +17,7 @@ def client():
         _env_file=None, jwt_cookie_name="test_session", jwt_cookie_secure=True
     )
     app.dependency_overrides[get_settings] = lambda: settings
-    with TestClient(app) as client:
+    with TestClient(app, headers={"X-CSRF-Protection": "1"}) as client:
         try:
             yield client
         finally:

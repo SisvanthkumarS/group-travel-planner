@@ -24,6 +24,7 @@ CREATE_BODY = {
     "destination": " New York ",
     "start_date": "2026-11-01",
     "end_date": "2026-11-03",
+    "timezone": "America/New_York",
 }
 ENDPOINTS = [
     ("POST", "/api/v1/trips", CREATE_BODY),
@@ -43,7 +44,7 @@ def client(monkeypatch):
     previous = app.dependency_overrides.copy()
     app.dependency_overrides[get_session] = lambda: session
     try:
-        with TestClient(app) as client:
+        with TestClient(app, headers={"X-CSRF-Protection": "1"}) as client:
             yield client
     finally:
         app.dependency_overrides.clear()
@@ -69,11 +70,21 @@ def test_trip_routes_require_authentication(client, method, path, body):
         {"destination": " "},
         {"end_date": "2026-10-31"},
         {"start_date": "invalid-date"},
+        {"timezone": "Not/A_Timezone"},
+        {"timezone": "../America/New_York"},
+        {"timezone": " "},
     ],
 )
 def test_create_trip_validates_body(authenticated_client, changes):
     response = authenticated_client.post("/api/v1/trips", json=CREATE_BODY | changes)
     assert response.status_code == 422
+
+
+def test_create_trip_requires_explicit_timezone(authenticated_client):
+    body = {key: value for key, value in CREATE_BODY.items() if key != "timezone"}
+    response = authenticated_client.post("/api/v1/trips", json=body)
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "timezone"]
 
 
 @pytest.mark.parametrize("method", ["GET", "DELETE"])
@@ -88,6 +99,7 @@ def test_controllers_delegate_identity_and_map_success_responses(authenticated_c
         destination="New York",
         start_date=date(2026, 11, 1),
         end_date=date(2026, 11, 3),
+        timezone="America/New_York",
         organizer_id=7,
     )
     detail = TripDetailResponse(
@@ -110,8 +122,10 @@ def test_controllers_delegate_identity_and_map_success_responses(authenticated_c
     )
     assert created.status_code == 201
     assert created.json()["organizer_id"] == 7
+    assert created.json()["timezone"] == "America/New_York"
     body, actor = service.create_trip.call_args.args
     assert body.name == "NYC Trip" and body.destination == "New York"
+    assert body.timezone == "America/New_York"
     assert actor == 7
 
     assert authenticated_client.get("/api/v1/trips").json() == [created.json()]

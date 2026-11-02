@@ -30,6 +30,7 @@ uv installs Python 3.15 when needed. Docker Compose v2 is needed for the full st
 pnpm install --frozen-lockfile
 uv sync --project backend --python 3.15 --frozen
 cp .env.example .env
+cp docker/.env.example docker/.env
 ```
 
 On PowerShell, use `Copy-Item .env.example .env` for the last command. Keep existing
@@ -54,14 +55,16 @@ provides TLS. Redis errors return 503 for login/renewal; valid access JWTs conti
 working. Logout clears cookies even if Redis is unavailable, but returns 503
 because server-side revocation could not be confirmed.
 
-The root Compose file includes an optional local Redis service. With the local
-URLs from `.env.example`, run:
+The development Compose files under `docker/` include a local Redis service.
+Compose reads `docker/.env`; host processes read the root `.env`. Keep database
+credentials consistent between them. For an existing local setup, preserve the
+current credentials rather than overwriting either file. To start Redis only:
 
 ```sh
-docker compose --profile local-redis up -d redis
+docker compose --env-file docker/.env -f docker/compose.dev.yml up -d redis
 ```
 
-For a remote Redis URL, this local service is unnecessary. After dependency or
+Set `REDIS_URL_DOCKER` in `docker/.env` to use a remote Redis for authentication. After dependency or
 environment changes, rebuild/recreate the backend; source changes still reload.
 Refresh credentials stay stable within a browser session to support parallel
 requests, while Redis TTL renewals use WATCH/MULTI to avoid recreating a session
@@ -86,7 +89,7 @@ Additional settings: `REDIS_URL`, `REDIS_URL_DOCKER`, `REDIS_KEY_PREFIX`,
 `REDIS_TIMEOUT_SECONDS`, `JWT_REFRESH_COOKIE_NAME`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`,
 `JWT_SESSION_MAX_DAYS`, and `JWT_REFRESH_WINDOW_SECONDS`. See `.env.example`.
 
-Compose sets the backend database hostname to `db`. If you change the database
+Compose sets the backend database hostname to `postgres` and internal port to `5432`. If you change the database
 credentials or port, update the host `DATABASE_URL` too. URL-encode special
 characters in connection URL credentials. Never put secrets in `VITE_*` values.
 Use independently generated secrets and a deployment-specific configuration for
@@ -94,18 +97,50 @@ any deployed environment; the Compose setup is for development.
 
 ## Development
 
+Cookie-authenticated API requests use custom-header CSRF protection. Every request
+except `GET`, `HEAD`, and `OPTIONS` must send `X-CSRF-Protection: 1`, including
+registration, login, and logout; missing or incorrect headers return `403` before
+the handler runs. Browser requests with an `Origin` must match `CORS_ORIGINS`
+exactly. List only trusted frontend origins (including a same-origin deployment's
+origin); wildcard and `null` origins are rejected. The header forces cross-origin
+browser requests through CORS preflight and is not a secret token.
+
+The shared frontend `apiRequest(path, options?)` sends cookies and adds the
+header automatically for mutations. For example:
+
+```ts
+await apiRequest('/auth/logout', { method: 'POST', auth: false });
+```
+
+CLI clients must also send the header. Safe requests and CORS preflights do not
+need it. The HttpOnly session cookie retains its `SameSite=Lax` protection.
+
 ```sh
 pnpm run dev
 ```
 
-This builds and starts PostgreSQL, runs Alembic migrations once the database is
+The backend image is built on first use; rebuild it after dependency changes.
+This starts PostgreSQL and Redis, runs Alembic migrations once the database is
 healthy, then starts FastAPI and Vite with hot reload. Open the frontend at
 <http://localhost:5173>. Source edits under `frontend/src` and `backend/app` reload
-automatically. Rebuild after dependency changes. Stop with `docker compose down`;
-the database volume persists. `docker compose down -v` also deletes local data.
+automatically. Rebuild the backend after dependency changes. Stop with
+`docker compose --env-file docker/.env -f docker/compose.dev.yml stop`;
+the database volume persists. Use the same Compose file, environment file, and
+project name for subsequent commands; removing database volumes deletes their data.
+
+The local PyCharm `Docker - Full Stack` launcher must use
+`docker/compose.dev.yml` and `docker/.env`, not the removed root `compose.yaml`.
+Start with the same Compose project name on every run to reuse the database volume.
+The backend now runs the image's migration/Uvicorn startup script instead of
+`sleep infinity`. Frontend dependencies use container volumes so Linux binaries
+do not overwrite the host's node_modules. Rebuild backend dependencies with:
+
+```sh
+docker compose --env-file docker/.env -f docker/compose.dev.yml build backend
+```
 
 To run application processes directly, start PostgreSQL separately (or run
-`docker compose up -d db`), then use separate terminals:
+`docker compose --env-file docker/.env -f docker/compose.dev.yml up -d postgres`), then use separate terminals:
 
 ```sh
 pnpm run db:migrate
@@ -141,7 +176,7 @@ uv run --project backend alembic -c backend/alembic.ini downgrade -1
 ```
 
 Review generated migrations before applying them. In Compose, run
-`docker compose run --rm migrate` to apply additional migrations.
+`docker compose --env-file docker/.env -f docker/compose.dev.yml exec backend alembic -c /opt/app/backend/alembic.ini upgrade head` to apply additional migrations.
 
 ## API documentation
 

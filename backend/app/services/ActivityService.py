@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import UTC, datetime
 from functools import wraps
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -137,13 +138,16 @@ class ActivityService:
         starts_at, ends_at = body.starts_at.astimezone(UTC), body.ends_at.astimezone(UTC)
         if starts_at <= datetime.now(UTC):
             self._invalid("starts_at", "starts_at must be later than the current time.")
-        # Trips currently store dates without a timezone. Use UTC calendar dates consistently.
-        if not trip.start_date <= starts_at.date() <= trip.end_date:
+        trip_timezone = ZoneInfo(trip.timezone)
+        if not trip.start_date <= starts_at.astimezone(trip_timezone).date() <= trip.end_date:
             self._invalid(
-                "starts_at", "Activity start must fall within the trip's UTC travel dates."
+                "starts_at",
+                "Activity start must fall within the travel dates in the trip's timezone.",
             )
-        if not trip.start_date <= ends_at.date() <= trip.end_date:
-            self._invalid("ends_at", "Activity end must fall within the trip's UTC travel dates.")
+        if not trip.start_date <= ends_at.astimezone(trip_timezone).date() <= trip.end_date:
+            self._invalid(
+                "ends_at", "Activity end must fall within the travel dates in the trip's timezone."
+            )
         if self.repository.proposal_count(trip_id) >= 100:
             raise HTTPException(409, "Trip has reached its limit of 100 proposals.")
         proposal = self.repository.add(

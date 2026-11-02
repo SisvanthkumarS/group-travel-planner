@@ -22,7 +22,11 @@ export function RequireAuth() {
       <Navigate
         to="/sign-in"
         replace
-        state={{ from: location.pathname + location.search }}
+        state={
+          state.byUser
+            ? undefined
+            : { from: location.pathname + location.search }
+        }
       />
     );
   }

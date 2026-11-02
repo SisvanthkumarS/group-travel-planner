@@ -20,6 +20,7 @@ def test_details_maps_all_fields_without_committing():
         destination="New York",
         start_date=date(2026, 11, 1),
         end_date=date(2026, 11, 3),
+        timezone="America/New_York",
         organizer_id=7,
     )
     member = TripMember(
@@ -31,6 +32,7 @@ def test_details_maps_all_fields_without_committing():
     ]
     result = service.get_trip(12, 7)
     assert result.trip_id == 12 and result.destination == "New York"
+    assert result.timezone == "America/New_York"
     assert result.members[0].user_name == "KC"
     service.repository.find_membership.assert_called_once_with(12, 7)
     session.commit.assert_not_called()

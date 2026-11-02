@@ -102,7 +102,9 @@ def auth_client(monkeypatch, refresh_store):
     trips.list_trips.return_value = []
     app.dependency_overrides[get_trip_service] = lambda: trips
     try:
-        with TestClient(app, raise_server_exceptions=False) as client:
+        with TestClient(
+            app, raise_server_exceptions=False, headers={"X-CSRF-Protection": "1"}
+        ) as client:
             yield client, refresh_store, session, settings, trips
     finally:
         app.dependency_overrides.clear()
