@@ -5,6 +5,9 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SignInPage } from './pages/SignInPage';
 import { TripsPage } from './pages/TripsPage';
+import { ItineraryTab } from './pages/trip/ItineraryTab';
+import { ProposalsTab } from './pages/trip/ProposalsTab';
+import { TripLayout } from './pages/trip/TripLayout';
 
 export function App() {
   return (
@@ -17,6 +20,10 @@ export function App() {
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
           <Route path="/trips" element={<TripsPage />} />
+          <Route path="/trips/:tripId" element={<TripLayout />}>
+            <Route index element={<ProposalsTab />} />
+            <Route path="itinerary" element={<ItineraryTab />} />
+          </Route>
         </Route>
       </Route>
 

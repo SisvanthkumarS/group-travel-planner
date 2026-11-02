@@ -26,7 +26,10 @@ import {
 type AuthState =
   | { status: 'loading' }
   | { status: 'signedIn'; user: User }
-  | { status: 'signedOut' };
+  // byUser: the user chose to sign out (here or in another tab), so the next
+  // sign-in should not jump back to the page they were on. An expired session
+  // leaves it unset, so signing back in returns them where they were.
+  | { status: 'signedOut'; byUser?: boolean };
 
 type AuthContextValue = {
   state: AuthState;
@@ -57,11 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Drop everything private: cached user, cached trip data, auth state.
-  const endSession = useCallback(() => {
-    writeCachedUser(null);
-    queryClient.clear();
-    setState({ status: 'signedOut' });
-  }, [queryClient]);
+  const endSession = useCallback(
+    (byUser = false) => {
+      writeCachedUser(null);
+      queryClient.clear();
+      setState({ status: 'signedOut', byUser });
+    },
+    [queryClient],
+  );
 
   // Restore the session once on load.
   useEffect(() => {
@@ -97,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!bc) return;
     bc.onmessage = (event: MessageEvent<AuthMessage>) => {
       if (event.data.type === 'signed-out') {
-        endSession();
+        endSession(true);
         navigate('/sign-in', { replace: true });
       } else if (event.data.type === 'signed-in') {
         queryClient.clear();
@@ -139,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Clear the local session even if the request fails.
     }
-    endSession();
+    endSession(true);
     channel.current?.postMessage({ type: 'signed-out' } satisfies AuthMessage);
     navigate('/sign-in', { replace: true });
   }, [endSession, navigate]);
