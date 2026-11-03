@@ -89,6 +89,23 @@ Additional settings: `REDIS_URL`, `REDIS_URL_DOCKER`, `REDIS_KEY_PREFIX`,
 `REDIS_TIMEOUT_SECONDS`, `JWT_REFRESH_COOKIE_NAME`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`,
 `JWT_SESSION_MAX_DAYS`, and `JWT_REFRESH_WINDOW_SECONDS`. See `.env.example`.
 
+The production frontend image reads `VITE_API_URL` when the container starts,
+so the same image can be reused across environments without rebuilding:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e VITE_API_URL=http://3.12.166.194:8000/api/v1 \
+  hubertchang/course:frontend-latest
+```
+
+With production Compose, set `VITE_API_URL` in the file passed to `--env-file`,
+then recreate the frontend container. The entrypoint generates
+`dist/runtime-config.js` before serving the app, and that file is served with
+`Cache-Control: no-store`. Only this public API URL is exposed. If omitted,
+the container defaults to `http://localhost:8000/api/v1`. Local Vite development
+continues to use `import.meta.env.VITE_API_URL`. The backend's `CORS_ORIGINS`
+must allow the actual frontend origin, including its scheme and port.
+
 Compose sets the backend database hostname to `postgres` and internal port to `5432`. If you change the database
 credentials or port, update the host `DATABASE_URL` too. URL-encode special
 characters in connection URL credentials. Never put secrets in `VITE_*` values.
