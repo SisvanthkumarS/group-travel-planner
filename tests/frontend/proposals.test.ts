@@ -258,6 +258,7 @@ describe('create trip validation (US-04)', () => {
     destination: 'Lisbon, Portugal',
     start_date: '2027-03-14',
     end_date: '2027-03-19',
+    timezone: 'Europe/Lisbon',
   };
   it('accepts a valid trip, including a one-day trip', () => {
     expect(validateTrip(ok)).toEqual({});
@@ -268,10 +269,17 @@ describe('create trip validation (US-04)', () => {
       /before/,
     );
   });
+  it('requires a time zone', () => {
+    expect(validateTrip({ ...ok, timezone: '' }).timezone).toMatch(/time zone/);
+  });
 });
 
 describe('proposal validation (US-07)', () => {
-  const trip = { start_date: '2027-03-14', end_date: '2027-03-19' };
+  const trip = {
+    start_date: '2027-03-14',
+    end_date: '2027-03-19',
+    timezone: 'Europe/Lisbon',
+  };
   const ok = {
     title: 'Fado night',
     location: 'Alfama',
@@ -308,6 +316,31 @@ describe('proposal validation (US-07)', () => {
         .starts_at,
     ).toMatch(/future/);
   });
+
+  it('reads times on the trip clock, so a late evening on the last day fits', () => {
+    const ny = { ...trip, timezone: 'America/New_York' };
+    // 20:30 in New York on the last day is already the next day in UTC.
+    expect(
+      validateProposal(
+        { ...ok, starts_at: '2027-03-19T20:30', ends_at: '2027-03-19T22:00' },
+        ny,
+        NOW,
+      ),
+    ).toEqual({});
+  });
+
+  it('judges "in the future" on the trip clock', () => {
+    // 10:00 in Tokyo is 01:00 UTC, already past at 02:00 UTC.
+    const tokyo = { ...trip, timezone: 'Asia/Tokyo' };
+    const now = Date.parse('2027-03-15T02:00:00Z');
+    expect(
+      validateProposal(
+        { ...ok, starts_at: '2027-03-15T10:00', ends_at: '2027-03-15T12:00' },
+        tokyo,
+        now,
+      ).starts_at,
+    ).toMatch(/future/);
+  });
 });
 
 describe('itinerary days (US-15)', () => {
@@ -320,16 +353,50 @@ describe('itinerary days (US-15)', () => {
       description: '',
       estimated_cost: '35',
       location: 'Alfama',
-      starts_at: '2027-03-15T21:00',
-      ends_at: '2027-03-15T23:00',
+      starts_at: '2027-03-15T21:00:00Z',
+      ends_at: '2027-03-15T23:00:00Z',
       status: 'ACTIVE' as const,
     };
-    const days = groupByDay([item], [], '2027-03-14', '2027-03-16');
+    const days = groupByDay(
+      [item],
+      [],
+      '2027-03-14',
+      '2027-03-16',
+      'Europe/Lisbon',
+    );
     expect(days.map((d) => d.key)).toEqual([
       '2027-03-14',
       '2027-03-15',
       '2027-03-16',
     ]);
     expect(days[1].items).toEqual([item]);
+  });
+
+  it('files a late-evening activity under the trip day, not the UTC day', () => {
+    const item = {
+      item_id: 2,
+      trip_id: 1,
+      proposal_id: 2,
+      title: 'Late dinner',
+      description: '',
+      estimated_cost: '60',
+      location: 'Midtown',
+      starts_at: '2027-03-17T00:30:00Z', // 20:30 on Mar 16 in New York
+      ends_at: '2027-03-17T02:00:00Z',
+      status: 'ACTIVE' as const,
+    };
+    const days = groupByDay(
+      [item],
+      [],
+      '2027-03-14',
+      '2027-03-16',
+      'America/New_York',
+    );
+    expect(days.map((d) => d.key)).toEqual([
+      '2027-03-14',
+      '2027-03-15',
+      '2027-03-16',
+    ]);
+    expect(days[2].items).toEqual([item]);
   });
 });

@@ -47,6 +47,30 @@ def test_auth_requires_a_nonempty_password(client, action):
     assert response.status_code == 422
 
 
+def test_register_requires_at_least_eight_characters(client):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"user_name": "KC", "email": "user@example.com", "password": "1234567"},
+    )
+    assert response.status_code == 422
+    error = response.json()["detail"][0]
+    assert error["loc"] == ["body", "password"]
+    assert error["msg"] == "Value error, Password must be at least 8 characters."
+
+
+def test_login_does_not_enforce_the_registration_length(client):
+    class FakeAuthService:
+        def login(self, request):
+            assert request.password.get_secret_value() == "short"
+            raise HTTPException(401, "Invalid login credentials.")
+
+    app.dependency_overrides[get_auth_service] = FakeAuthService
+    response = client.post(
+        "/api/v1/auth/login", json={"email": "user@example.com", "password": "short"}
+    )
+    assert response.status_code == 401
+
+
 def test_controller_delegates_and_sets_cookie_only_after_success(client):
     user = UserResponse(
         user_id=1,
@@ -59,15 +83,24 @@ def test_controller_delegates_and_sets_cookie_only_after_success(client):
         def register(self, request):
             assert request.user_name == user.user_name
             assert request.email == user.email
-            assert request.password.get_secret_value() == "example"
+            assert request.password.get_secret_value() == "example-password"
             return user
 
         def login(self, request):
             assert request.email == user.email
-            return LoginResult(user=user, access_token="test-token")
+            return LoginResult(
+                user=user,
+                access_token="test-token",
+                refresh_token="test-refresh",
+                refresh_token_max_age=604800,
+            )
 
     app.dependency_overrides[get_auth_service] = FakeAuthService
-    payload = {"user_name": "KC", "email": " user@example.com ", "password": "example"}
+    payload = {
+        "user_name": "KC",
+        "email": " user@example.com ",
+        "password": "example-password",
+    }
     registered = client.post("/api/v1/auth/register", json=payload)
     assert registered.status_code == 201
     assert set(registered.json()) == {"user_id", "user_name", "email", "created_at"}

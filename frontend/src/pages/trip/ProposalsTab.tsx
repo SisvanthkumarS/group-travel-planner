@@ -32,6 +32,7 @@ const NEEDS_YOU_COPY: Record<
 };
 
 function NeedsYou({ items }: { items: NeedsYouItem[] }) {
+  const { trip } = useTripContext();
   if (items.length === 0) return null;
   return (
     <section className="needs-you" aria-labelledby="needs-you-title">
@@ -54,8 +55,9 @@ function NeedsYou({ items }: { items: NeedsYouItem[] }) {
                 <span
                   className={`mono eyebrow ${kind === 'tie' ? 'eyebrow--warm' : ''}`}
                 >
-                  {NEEDS_YOU_COPY[kind].label(proposal)} · {weekday(start)}{' '}
-                  {shortDate(start)}
+                  {NEEDS_YOU_COPY[kind].label(proposal)} ·{' '}
+                  {weekday(start, trip.timezone)}{' '}
+                  {shortDate(start, trip.timezone)}
                 </span>
                 <span className="needs-you__name">{proposal.title}</span>
               </div>
@@ -71,7 +73,7 @@ function NeedsYou({ items }: { items: NeedsYouItem[] }) {
 }
 
 function History({ proposals }: { proposals: Proposal[] }) {
-  const { memberName } = useTripContext();
+  const { trip, memberName } = useTripContext();
   const [open, setOpen] = useState(true);
   if (proposals.length === 0) return null;
 
@@ -107,7 +109,7 @@ function History({ proposals }: { proposals: Proposal[] }) {
                   {p.title}
                 </span>
                 <span className="mono small muted-strong">
-                  {activityWhen(p.starts_at, p.ends_at)}
+                  {activityWhen(p.starts_at, p.ends_at, trip.timezone)}
                 </span>
                 <span className="mono small history__result">
                   {p.status === 'WITHDRAWN' && !p.poll

@@ -54,11 +54,45 @@ is needed for the container setup.
 pnpm install --frozen-lockfile
 uv sync --project backend --python 3.15 --frozen
 cp .env.example .env
+cp docker/.env.example docker/.env
 ```
 
 On PowerShell, use `Copy-Item .env.example .env` for the last command. Keep existing
 local environment values if you already have `.env`. `pnpm install --frozen-lockfile` installs Husky hooks.
 Ensure `uv` and Node are on PATH in the terminal or Git client used for commits.
+
+## Redis and refresh sessions
+
+Login sets an `access_token` JWT and an opaque HttpOnly `refresh_token` cookie.
+Redis stores only a hash of the refresh credential. Protected endpoints renew
+cookies automatically when access expires or is within 60 seconds of expiry;
+`POST /api/v1/auth/refresh` also supports explicit renewal. Defaults are a 30-minute
+access token, 7-day sliding idle timeout, and 30-day absolute session deadline.
+Logout clears both cookies and deletes the current refresh session. A copied
+access JWT remains valid until expiry; it is not blacklisted. An existing user
+must log in once after upgrading to obtain both new cookies.
+
+Set `REDIS_URL` for processes on the host and `REDIS_URL_DOCKER` for the backend
+container. For a remote server, both can use the same URL. Keep credentials in
+ignored `.env` files, never documentation or Git. Use `rediss://` if the server
+provides TLS. Redis errors return 503 for login/renewal; valid access JWTs continue
+working. Logout clears cookies even if Redis is unavailable, but returns 503
+because server-side revocation could not be confirmed.
+
+The development Compose files under `docker/` include a local Redis service.
+Compose reads `docker/.env`; host processes read the root `.env`. Keep database
+credentials consistent between them. For an existing local setup, preserve the
+current credentials rather than overwriting either file. To start Redis only:
+
+```sh
+docker compose --env-file docker/.env -f docker/compose.dev.yml up -d redis
+```
+
+Set `REDIS_URL_DOCKER` in `docker/.env` to use a remote Redis for authentication. After dependency or
+environment changes, rebuild/recreate the backend; source changes still reload.
+Refresh credentials stay stable within a browser session to support parallel
+requests, while Redis TTL renewals use WATCH/MULTI to avoid recreating a session
+revoked concurrently. Each browser login has an independent refresh session.
 
 ## Environment
 
@@ -77,11 +111,29 @@ values are disposable local defaults, not deployment credentials.
 | `POLL_SCHEDULER_INTERVAL_SECONDS`                                    | Deadline scan interval; defaults to `5` seconds                       |
 | `VITE_API_URL`                                                       | Public frontend API base URL, normally `http://localhost:8000/api/v1` |
 
-Host processes read the root `.env`; Docker Compose uses `docker/.env`, copied
-from `docker/.env.example`. Docker's database service is named `postgres`;
-host processes normally connect through `localhost` and the published port.
-If you change database credentials or the published port, update the host
-`DATABASE_URL` too. URL-encode special
+Additional settings: `REDIS_URL`, `REDIS_URL_DOCKER`, `REDIS_KEY_PREFIX`,
+`REDIS_TIMEOUT_SECONDS`, `JWT_REFRESH_COOKIE_NAME`, `JWT_REFRESH_TOKEN_EXPIRE_DAYS`,
+`JWT_SESSION_MAX_DAYS`, and `JWT_REFRESH_WINDOW_SECONDS`. See `.env.example`.
+
+The production frontend image reads `VITE_API_URL` when the container starts,
+so the same image can be reused across environments without rebuilding:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e VITE_API_URL=http://3.12.166.194:8000/api/v1 \
+  hubertchang/course:frontend-latest
+```
+
+With production Compose, set `VITE_API_URL` in the file passed to `--env-file`,
+then recreate the frontend container. The entrypoint generates
+`dist/runtime-config.js` before serving the app, and that file is served with
+`Cache-Control: no-store`. Only this public API URL is exposed. If omitted,
+the container defaults to `http://localhost:8000/api/v1`. Local Vite development
+continues to use `import.meta.env.VITE_API_URL`. The backend's `CORS_ORIGINS`
+must allow the actual frontend origin, including its scheme and port.
+
+Compose sets the backend database hostname to `postgres` and internal port to `5432`. If you change the database
+credentials or port, update the host `DATABASE_URL` too. URL-encode special
 characters in connection URL credentials. Never put secrets in `VITE_*` values.
 Use independently generated secrets and a deployment-specific configuration for
 any deployed environment; the Compose setup is for development.
@@ -116,11 +168,28 @@ pnpm run dev:backend
 pnpm run dev:frontend
 ```
 
-Open <http://localhost:5173> for the frontend and <http://localhost:8000/docs>
-for Swagger UI. Use `localhost` consistently for both to keep cookie behavior
-predictable. Source changes reload automatically.
+The backend image is built on first use; rebuild it after dependency changes.
+This starts PostgreSQL and Redis, runs Alembic migrations once the database is
+healthy, then starts FastAPI and Vite with hot reload. Open the frontend at
+<http://localhost:5173>. Source edits under `frontend/src` and `backend/app` reload
+automatically. Rebuild the backend after dependency changes. Stop with
+`docker compose --env-file docker/.env -f docker/compose.dev.yml stop`;
+the database volume persists. Use the same Compose file, environment file, and
+project name for subsequent commands; removing database volumes deletes their data.
 
-To start only the Docker database services:
+The local PyCharm `Docker - Full Stack` launcher must use
+`docker/compose.dev.yml` and `docker/.env`, not the removed root `compose.yaml`.
+Start with the same Compose project name on every run to reuse the database volume.
+The backend now runs the image's migration/Uvicorn startup script instead of
+`sleep infinity`. Frontend dependencies use container volumes so Linux binaries
+do not overwrite the host's node_modules. Rebuild backend dependencies with:
+
+```sh
+docker compose --env-file docker/.env -f docker/compose.dev.yml build backend
+```
+
+To run application processes directly, start PostgreSQL separately (or run
+`docker compose --env-file docker/.env -f docker/compose.dev.yml up -d postgres`), then use separate terminals:
 
 ```sh
 cp docker/.env.example docker/.env
@@ -201,9 +270,8 @@ pnpm run db:migrate
 uv run --project backend alembic -c backend/alembic.ini downgrade -1
 ```
 
-Review generated migrations before applying them. Run `pnpm run db:migrate`
-against the intended `DATABASE_URL`; the current development Compose configuration
-does not provide a migration service.
+Review generated migrations before applying them. In Compose, run
+`docker compose --env-file docker/.env -f docker/compose.dev.yml exec backend alembic -c /opt/app/backend/alembic.ini upgrade head` to apply additional migrations.
 
 ## API documentation
 

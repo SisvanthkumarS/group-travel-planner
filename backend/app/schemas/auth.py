@@ -21,7 +21,15 @@ UserNameInput = Annotated[
 class RegisterRequest(BaseModel):
     user_name: UserNameInput
     email: EmailInput
-    password: SecretStr = Field(min_length=1)
+    # Checked in a validator for a readable message; minLength still documents it.
+    password: SecretStr = Field(json_schema_extra={"minLength": 8})
+
+    @field_validator("password")
+    @classmethod
+    def require_eight_characters(cls, value: SecretStr) -> SecretStr:
+        if len(value.get_secret_value()) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        return value
 
 
 class LoginRequest(BaseModel):

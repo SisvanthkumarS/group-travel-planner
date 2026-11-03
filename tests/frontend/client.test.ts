@@ -30,7 +30,42 @@ async function caught(promise: Promise<unknown>): Promise<ApiError> {
   throw new Error('expected the request to fail');
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+describe('runtime API configuration', () => {
+  it('overrides the build-time URL and removes trailing slashes', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_API_URL', 'http://localhost:8000/api/v1');
+    vi.stubGlobal('__APP_CONFIG__', {
+      VITE_API_URL: 'http://3.12.166.194:8000/api/v1///',
+    });
+    const fetch = stubFetch(json([]));
+    const { apiRequest: runtimeRequest } =
+      await import('../../frontend/src/api/client');
+
+    await runtimeRequest('/trips');
+
+    expect(fetch.mock.calls[0][0]).toBe(
+      'http://3.12.166.194:8000/api/v1/trips',
+    );
+  });
+
+  it('uses the Vite URL when runtime configuration is absent', async () => {
+    vi.resetModules();
+    vi.stubGlobal('__APP_CONFIG__', undefined);
+    vi.stubEnv('VITE_API_URL', 'http://localhost:9000/api/v1');
+    const fetch = stubFetch(json([]));
+    const { apiRequest: developmentRequest } =
+      await import('../../frontend/src/api/client');
+
+    await developmentRequest('/trips');
+
+    expect(fetch.mock.calls[0][0]).toBe('http://localhost:9000/api/v1/trips');
+  });
+});
 
 describe('apiRequest', () => {
   it('sends the session cookie and decodes JSON', async () => {

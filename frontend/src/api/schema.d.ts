@@ -32,9 +32,29 @@ export interface paths {
         put?: never;
         /**
          * Login
-         * @description Sign in with email or a unique username and set an HttpOnly JWT cookie.
+         * @description Set an access JWT and a Redis-backed opaque refresh credential in HttpOnly cookies.
          */
         post: operations["login_api_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh
+         * @description Renew the access token and sliding session using the refresh cookie; no body required.
+         */
+        post: operations["refresh_api_v1_auth_refresh_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -52,7 +72,7 @@ export interface paths {
         put?: never;
         /**
          * Logout
-         * @description Clear the browser cookie; a previously issued JWT is not revoked server-side.
+         * @description Revoke this browser's refresh session and clear both authentication cookies.
          */
         post: operations["logout_api_v1_auth_logout_post"];
         delete?: never;
@@ -167,7 +187,7 @@ export interface paths {
          * Create Proposal
          * @description Submit a PENDING proposal as a trip participant.
          *
-         *     Activity times must be in the future and within the trip's UTC travel dates.
+         *     Activity times must be in the future and within the travel dates in the trip's timezone.
          *     Description and non-negative estimated cost are required. At most 100 proposals
          *     are allowed per trip, including withdrawn and canceled proposals.
          */
@@ -367,6 +387,11 @@ export interface components {
              * Format: date
              */
             end_date: string;
+            /**
+             * Timezone
+             * @description IANA timezone used for the trip's calendar dates, e.g. America/New_York.
+             */
+            timezone: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -395,6 +420,22 @@ export interface components {
             created_at: string;
             /** Responded At */
             responded_at: string | null;
+            /** Trip Name */
+            trip_name: string;
+            /** Destination */
+            destination: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Invited By User Name */
+            invited_by_user_name: string;
         };
         /** ItineraryItemResponse */
         ItineraryItemResponse: {
@@ -601,6 +642,8 @@ export interface components {
              * Format: date
              */
             end_date: string;
+            /** Timezone */
+            timezone: string;
             /** Organizer Id */
             organizer_id: number;
             /** Members */
@@ -641,6 +684,8 @@ export interface components {
              * Format: date
              */
             end_date: string;
+            /** Timezone */
+            timezone: string;
             /** Organizer Id */
             organizer_id: number;
         };
@@ -783,6 +828,47 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
+            /** @description Redis authentication storage unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    refresh_api_v1_auth_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+            /** @description Refresh credential absent, invalid, revoked or expired. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Redis authentication storage unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     logout_api_v1_auth_logout_post: {
@@ -796,6 +882,13 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Cookies cleared but Redis revocation failed. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

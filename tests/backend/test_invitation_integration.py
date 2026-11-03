@@ -52,6 +52,7 @@ def database():
             "email": recipient.email,
             "user_name": recipient.user_name,
             "organizer_email": organizer.email,
+            "organizer_name": organizer.user_name,
         }
         trip = Trip(
             name="Invitation test",
@@ -167,6 +168,40 @@ def test_list_invitations_includes_history_and_isolates_recipient(client, databa
     # The organizer sent invitations but has not received any.
     client.cookies.set("access_token", security.create_access_token(data["organizer"]))
     assert client.get("/api/v1/invitations").json() == []
+
+
+def test_invitation_shows_trip_and_organizer_to_recipient(client, database):
+    """US-06: the recipient can tell which trip it is and who invited them."""
+    _engine, data = database
+    expected = {
+        "trip_id": data["trip_id"],
+        "trip_name": "Invitation test",
+        "destination": "NYC",
+        "start_date": "2026-11-01",
+        "end_date": "2026-11-03",
+        "invited_by_user_id": data["organizer"],
+        "invited_by_user_name": data["organizer_name"],
+    }
+
+    created = post_invitation(client, data)
+    assert created.status_code == 201, created.text
+    assert created.json().items() >= expected.items()
+
+    # The recipient is not a member, so the trip itself is still private to them...
+    client.cookies.set("access_token", security.create_access_token(data["recipient"]))
+    assert client.get(f"/api/v1/trips/{data['trip_id']}").status_code in (403, 404)
+    # ...but their inbox names the trip, its dates and the Organizer who invited them.
+    inbox = client.get("/api/v1/invitations")
+    assert inbox.status_code == 200, inbox.text
+    [listed] = inbox.json()
+    assert listed.items() >= expected.items()
+
+    answered = client.patch(
+        "/api/v1/invitations",
+        json={"invitation_id": listed["invitation_id"], "decision": "DECLINE"},
+    )
+    assert answered.status_code == 200, answered.text
+    assert answered.json().items() >= {**expected, "status": "DECLINED"}.items()
 
 
 @pytest.mark.parametrize("identifier", ["email", "user_name", "blank-email", "both"])

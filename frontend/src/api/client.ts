@@ -4,8 +4,16 @@
 // attaches it for us. We never read or store the token in JS; every request
 // just has to send credentials.
 
+const runtimeConfig = (
+  globalThis as typeof globalThis & {
+    __APP_CONFIG__?: { VITE_API_URL?: string };
+  }
+).__APP_CONFIG__;
+
 const baseUrl = (
-  import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+  runtimeConfig?.VITE_API_URL ||
+  import.meta.env.VITE_API_URL ||
+  'http://localhost:8000/api/v1'
 ).replace(/\/+$/, '');
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';

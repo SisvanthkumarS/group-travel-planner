@@ -5,20 +5,34 @@ requests, and an in-memory authentication context. The context is a placeholder
 for a future login flow; it does not authenticate users. No token persists across
 reloads. The frontend authentication context has not yet been wired to the backend's JWT cookie flow.
 
-FastAPI hosts the app and documentation. All future feature controllers join the
-router with the `/api/v1` prefix. `AuthController.py` delegates registration and
-login to `AuthService`; logout clears the configured JWT cookie. Login accepts
-email or username, treating blank identifiers as absent and preferring email
-when both are supplied. Usernames are case-sensitive, unique, and limited to
-1–30 characters after trimming outer whitespace. Registration checks email and
-username availability; database unique indexes also prevent concurrent duplicates.
-Login first looks up the user, then verifies the password hash. Invalid credentials
-return 401; missing identifiers or passwords return 422.
-The controller sets an HttpOnly, SameSite=Lax cookie after authentication.
-`create_access_token` signs a token with `sub`, `iat`, and `exp`;
-`parse_access_token` verifies the signature, timestamps, and positive user ID.
-Tokens contain no password data. Set `JWT_COOKIE_SECURE=true` for HTTPS deployment.
-Clearing a cookie does not revoke a previously issued token on the server.
+FastAPI hosts the app and documentation under `/api/v1`. `AuthController.py`
+delegates registration and login to `AuthService`. Login accepts email or username,
+preferring email when both are supplied. Usernames are case-sensitive, unique,
+and limited to 1–30 trimmed characters. Registration checks availability; database
+unique indexes also prevent concurrent duplicates. Passwords are hashed on the
+server. Invalid credentials return 401; invalid input returns 422.
+
+Login returns the user DTO and sets two HttpOnly, SameSite=Lax, Path=/ cookies:
+an access JWT with `sub`, `iat`, `exp`, and `token_type=access`, and an opaque random
+refresh credential. Redis stores a SHA-256 hash as the key, plus the user ID and
+absolute session deadline. Defaults are 30-minute access, 7-day refresh idle
+timeout, and 30-day absolute session lifetime. Renewal slides the idle TTL without
+extending the absolute deadline. Cookies are Secure when JWT_COOKIE_SECURE=true.
+
+`require_authentication` validates access and loads its user. Missing, invalid,
+or expired access can be replaced using the refresh session. Near-expiry access
+is renewed proactively. Redis WATCH/MULTI prevents a renewal from recreating a
+concurrently deleted session. The refresh credential stays stable within a browser
+session so parallel requests cannot invalidate each other. The cookie middleware
+attaches renewals even to explicit 204 and business-error responses. Public auth
+routes skip automatic renewal; POST `/auth/refresh` validates its own refresh cookie.
+
+Logout deletes the current Redis session and clears both cookies. A copied access
+JWT remains valid until expiry; it is not blacklisted. Redis failures return 503
+for login or required refresh, but do not reject a still-valid access JWT. Logout
+clears cookies on Redis failure and returns 503 to report unconfirmed revocation.
+Users must log in once after upgrading to obtain both new credentials. Tokens are
+never returned in JSON. Cookie responses include Cache-Control: no-store.
 
 Trip Management exposes authenticated create, list, detail, and delete routes at
 `/api/v1/trips`. Creation inserts the trip and Organizer membership, then commits

@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   activityWhen,
   countdown,
+  clock,
   eachDay,
   fromDateTimeLocal,
+  localDateKey,
   money,
   parseDateOnly,
   toDateTimeLocal,
   tripDates,
+  zoneLabel,
 } from '../../frontend/src/lib/format';
 
 describe('dates', () => {
@@ -44,14 +47,60 @@ describe('dates', () => {
     );
   });
 
-  it('sends local times with their UTC offset, not as Z', () => {
-    const sent = fromDateTimeLocal('2027-03-15T20:30');
-    // Same wall-clock date and time the traveler picked...
-    expect(sent).toMatch(/^2027-03-15T20:30:00[+-]\d{2}:\d{2}$/);
-    // ...and the same instant.
-    expect(new Date(sent).getTime()).toBe(
-      new Date('2027-03-15T20:30').getTime(),
+  it("sends trip-clock times with that zone's offset", () => {
+    expect(fromDateTimeLocal('2026-11-20T20:30', 'America/New_York')).toBe(
+      '2026-11-20T20:30:00-05:00',
     );
+    expect(fromDateTimeLocal('2027-07-01T09:00', 'America/New_York')).toBe(
+      '2027-07-01T09:00:00-04:00',
+    );
+    expect(fromDateTimeLocal('2027-03-15T20:30', 'Asia/Kolkata')).toBe(
+      '2027-03-15T20:30:00+05:30',
+    );
+    expect(fromDateTimeLocal('2027-03-15T20:30', 'UTC')).toBe(
+      '2027-03-15T20:30:00+00:00',
+    );
+  });
+
+  it('handles the days daylight saving changes', () => {
+    // New York springs forward at 02:00 on 2027-03-14; 03:30 is EDT.
+    expect(fromDateTimeLocal('2027-03-14T03:30', 'America/New_York')).toBe(
+      '2027-03-14T03:30:00-04:00',
+    );
+    expect(fromDateTimeLocal('2027-03-14T01:30', 'America/New_York')).toBe(
+      '2027-03-14T01:30:00-05:00',
+    );
+    // Lisbon falls back at 02:00 on 2027-10-31; 18:00 is back on WET.
+    expect(fromDateTimeLocal('2027-10-31T18:00', 'Europe/Lisbon')).toBe(
+      '2027-10-31T18:00:00+00:00',
+    );
+  });
+
+  it('round-trips through the trip clock', () => {
+    const sent = fromDateTimeLocal('2027-03-15T20:30', 'Europe/Berlin');
+    expect(toDateTimeLocal(new Date(sent), 'Europe/Berlin')).toBe(
+      '2027-03-15T20:30',
+    );
+  });
+
+  it('shows an instant on the trip clock', () => {
+    const lateNy = new Date('2026-11-21T01:30:00Z');
+    expect(localDateKey(lateNy, 'America/New_York')).toBe('2026-11-20');
+    expect(clock(lateNy, 'America/New_York')).toBe('20:30');
+    expect(clock(lateNy, 'Asia/Tokyo')).toBe('10:30');
+    expect(
+      activityWhen(
+        '2026-11-21T01:30:00Z',
+        '2026-11-21T03:00:00Z',
+        'America/New_York',
+      ),
+    ).toBe('FRI NOV 20 · 20:30–22:00');
+  });
+
+  it('names the trip clock', () => {
+    const winter = new Date('2027-01-15T12:00:00Z');
+    expect(zoneLabel('America/New_York', winter)).toBe('New York time (GMT-5)');
+    expect(zoneLabel('Asia/Kolkata', winter)).toBe('Kolkata time (GMT+5:30)');
   });
 });
 
