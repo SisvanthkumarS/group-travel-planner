@@ -18,18 +18,19 @@ import { useNow, useTripContext } from './context';
 
 type Day = { key: string; items: ItineraryItem[]; voting: Proposal[] };
 
-/** Group items by local calendar day across the whole trip, plus any stragglers. */
+/** Group items by the trip's calendar day across the whole trip, plus any stragglers. */
 export function groupByDay(
   items: ItineraryItem[],
   voting: Proposal[],
   start: string,
   end: string,
+  timeZone?: string,
 ): Day[] {
   const days = new Map<string, Day>();
   for (const key of eachDay(start, end))
     days.set(key, { key, items: [], voting: [] });
   const dayFor = (iso: string) => {
-    const key = localDateKey(iso);
+    const key = localDateKey(iso, timeZone);
     if (!days.has(key)) days.set(key, { key, items: [], voting: [] });
     return days.get(key)!;
   };
@@ -74,6 +75,7 @@ export function ItineraryTab() {
     voting,
     trip.start_date,
     trip.end_date,
+    trip.timezone,
   );
   const total = itinerary.data.reduce(
     (sum, i) => sum + Number(i.estimated_cost || 0),
@@ -127,10 +129,10 @@ export function ItineraryTab() {
                   >
                     <div className="activity__time">
                       <span className="mono activity__start">
-                        {clock(item.starts_at)}
+                        {clock(item.starts_at, trip.timezone)}
                       </span>
                       <span className="mono small muted">
-                        to {clock(item.ends_at)}
+                        to {clock(item.ends_at, trip.timezone)}
                       </span>
                     </div>
                     <div className="activity__info">

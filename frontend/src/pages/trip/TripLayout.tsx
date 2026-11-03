@@ -16,7 +16,7 @@ import {
 import { useAuth } from '../../auth/AuthProvider';
 import { Avatar, BackIcon, PlusIcon, QueryError } from '../../components/bits';
 import { ConfirmDialog } from '../../components/Modal';
-import { tripDates } from '../../lib/format';
+import { tripDates, zoneLabel } from '../../lib/format';
 import type { TripContext } from './context';
 import { InviteModal } from './InviteModal';
 
@@ -123,6 +123,7 @@ export function TripLayout() {
             <span className="mono trip-ticket__dates">
               {tripDates(t.start_date, t.end_date)}
             </span>
+            <span title={t.timezone}>Times in {zoneLabel(t.timezone)}</span>
             <span>
               Organized by <strong>{organizerName}</strong>
             </span>

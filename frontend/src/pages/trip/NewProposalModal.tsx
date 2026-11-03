@@ -5,10 +5,11 @@ import { Field } from '../../components/Field';
 import { Modal } from '../../components/Modal';
 import {
   fromDateTimeLocal,
-  localDateKey,
+  instantOf,
   parseDateOnly,
   shortDate,
   tripDates,
+  zoneLabel,
 } from '../../lib/format';
 import { useTripContext } from './context';
 
@@ -22,10 +23,14 @@ export type ProposalFields = {
 };
 type Errors = Partial<Record<keyof ProposalFields, string>>;
 
-/** Mirrors the backend rules so most mistakes are caught before sending (US-07). */
+/**
+ * Mirrors the backend rules so most mistakes are caught before sending (US-07).
+ * Times are entered on the trip's clock, so the date part of the input is
+ * already the trip-local day.
+ */
 export function validateProposal(
   f: ProposalFields,
-  trip: { start_date: string; end_date: string },
+  trip: { start_date: string; end_date: string; timezone: string },
   now: number = Date.now(),
 ): Errors {
   const errors: Errors = {};
@@ -41,17 +46,17 @@ export function validateProposal(
 
   const range = `Must fall within the trip dates, ${shortDate(parseDateOnly(trip.start_date))} to ${shortDate(parseDateOnly(trip.end_date))}.`;
   const inTrip = (v: string) => {
-    const day = localDateKey(new Date(v));
+    const day = v.slice(0, 10);
     return day >= trip.start_date && day <= trip.end_date;
   };
+  const at = (v: string) => instantOf(v, trip.timezone);
 
   if (!f.starts_at) errors.starts_at = 'Pick a start time.';
-  else if (new Date(f.starts_at).getTime() <= now)
-    errors.starts_at = 'Must be in the future.';
+  else if (at(f.starts_at) <= now) errors.starts_at = 'Must be in the future.';
   else if (!inTrip(f.starts_at)) errors.starts_at = range;
 
   if (!f.ends_at) errors.ends_at = 'Pick an end time.';
-  else if (f.starts_at && new Date(f.ends_at) <= new Date(f.starts_at))
+  else if (f.starts_at && at(f.ends_at) <= at(f.starts_at))
     errors.ends_at = 'Must be after the start.';
   else if (!inTrip(f.ends_at)) errors.ends_at = range;
 
@@ -88,8 +93,8 @@ export function NewProposalModal({ onClose }: { onClose: () => void }) {
         location: fields.location.trim(),
         description: fields.description.trim(),
         estimated_cost: Number(fields.estimated_cost),
-        starts_at: fromDateTimeLocal(fields.starts_at),
-        ends_at: fromDateTimeLocal(fields.ends_at),
+        starts_at: fromDateTimeLocal(fields.starts_at, trip.timezone),
+        ends_at: fromDateTimeLocal(fields.ends_at, trip.timezone),
       });
       onClose();
     } catch (e) {
@@ -149,6 +154,7 @@ export function NewProposalModal({ onClose }: { onClose: () => void }) {
             value={fields.starts_at}
             onChange={set('starts_at')}
             error={errors.starts_at}
+            hint={`In ${zoneLabel(trip.timezone)}.`}
           />
           <Field
             label="Ends"
