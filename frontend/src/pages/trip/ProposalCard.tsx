@@ -12,8 +12,10 @@ import {
   activityWhen,
   countdown,
   fromDateTimeLocal,
+  instantOf,
   money,
   toDateTimeLocal,
+  zoneLabel,
 } from '../../lib/format';
 import { canVote, canWithdraw, myVote, tally } from '../../lib/proposals';
 import { useTripContext } from './context';
@@ -170,18 +172,25 @@ function TiePanel({ proposal }: { proposal: Proposal }) {
 }
 
 /** Default deadline: a day from now, or an hour before the activity if sooner. */
-function suggestedDeadline(startsAt: string, now: number): string {
+function suggestedDeadline(
+  startsAt: string,
+  now: number,
+  timeZone: string,
+): string {
   const start = new Date(startsAt).getTime();
   const dayFromNow = now + 24 * 3_600_000;
   const target = Math.min(dayFromNow, start - 3_600_000);
-  return toDateTimeLocal(new Date(Math.max(target, now + 10 * 60_000)));
+  return toDateTimeLocal(
+    new Date(Math.max(target, now + 10 * 60_000)),
+    timeZone,
+  );
 }
 
 function OpenPollPanel({ proposal, now }: { proposal: Proposal; now: number }) {
   const { trip, viewer } = useTripContext();
   const openPoll = useOpenPoll(trip.trip_id);
   const [deadline, setDeadline] = useState(() =>
-    suggestedDeadline(proposal.starts_at, now),
+    suggestedDeadline(proposal.starts_at, now, trip.timezone),
   );
   const [error, setError] = useState<string | null>(null);
   const inputId = `deadline-${proposal.proposal_id}`;
@@ -200,7 +209,7 @@ function OpenPollPanel({ proposal, now }: { proposal: Proposal; now: number }) {
     event.preventDefault();
     setError(null);
     if (!deadline) return setError('Pick when voting closes.');
-    const closes = new Date(deadline).getTime();
+    const closes = instantOf(deadline, trip.timezone);
     if (closes <= Date.now())
       return setError('The deadline must be in the future.');
     if (closes >= new Date(proposal.starts_at).getTime())
@@ -208,7 +217,7 @@ function OpenPollPanel({ proposal, now }: { proposal: Proposal; now: number }) {
     try {
       await openPoll.mutateAsync({
         proposalId: proposal.proposal_id,
-        deadline: fromDateTimeLocal(deadline),
+        deadline: fromDateTimeLocal(deadline, trip.timezone),
       });
     } catch (e) {
       setError(errorText(e, 'Could not open the poll.'));
@@ -232,12 +241,12 @@ function OpenPollPanel({ proposal, now }: { proposal: Proposal; now: number }) {
             type="datetime-local"
             className="field__input field__input--mono field__input--sm"
             value={deadline}
-            max={toDateTimeLocal(new Date(proposal.starts_at))}
+            max={toDateTimeLocal(new Date(proposal.starts_at), trip.timezone)}
             onChange={(e) => setDeadline(e.target.value)}
             aria-invalid={error ? true : undefined}
           />
           <span className="small muted">
-            Must be before the activity starts.
+            In {zoneLabel(trip.timezone)}. Must be before the activity starts.
           </span>
           <button
             type="submit"
@@ -299,7 +308,7 @@ export function ProposalCard({
         </h3>
         <div className="proposal__meta">
           <span className="mono ink">
-            {activityWhen(proposal.starts_at, proposal.ends_at)}
+            {activityWhen(proposal.starts_at, proposal.ends_at, trip.timezone)}
           </span>
           <span>{proposal.location}</span>
           <span>Est. {money(proposal.estimated_cost)}</span>

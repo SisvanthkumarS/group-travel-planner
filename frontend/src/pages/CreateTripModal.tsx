@@ -5,8 +5,9 @@ import { useCreateTrip } from '../api/hooks';
 import type { CreateTripRequest } from '../api/types';
 import { Field } from '../components/Field';
 import { Modal } from '../components/Modal';
+import { viewerTimeZone, zoneLabel } from '../lib/format';
 
-type Fields = Omit<CreateTripRequest, 'timezone'>;
+type Fields = CreateTripRequest;
 type Errors = Partial<Record<keyof Fields, string>>;
 
 export function validateTrip(f: Fields): Errors {
@@ -17,7 +18,14 @@ export function validateTrip(f: Fields): Errors {
   if (!f.end_date) errors.end_date = 'Pick an end date.';
   else if (f.start_date && f.end_date < f.start_date)
     errors.end_date = "End date can't be before the start date.";
+  if (!f.timezone) errors.timezone = 'Pick the time zone the trip is in.';
   return errors;
+}
+
+/** Every IANA zone the browser knows, with the viewer's own zone guaranteed. */
+function timeZoneOptions(current: string): string[] {
+  const zones = Intl.supportedValuesOf('timeZone');
+  return zones.includes(current) ? zones : [current, ...zones];
 }
 
 /** US-04: create a trip; the creator becomes its organizer. */
@@ -29,6 +37,7 @@ export function CreateTripModal({ onClose }: { onClose: () => void }) {
     destination: '',
     start_date: '',
     end_date: '',
+    timezone: viewerTimeZone(),
   });
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -47,7 +56,6 @@ export function CreateTripModal({ onClose }: { onClose: () => void }) {
         ...fields,
         name: fields.name.trim(),
         destination: fields.destination.trim(),
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
       navigate(`/trips/${trip.trip_id}`);
     } catch (error) {
@@ -105,6 +113,35 @@ export function CreateTripModal({ onClose }: { onClose: () => void }) {
             onChange={set('end_date')}
             error={errors.end_date}
           />
+        </div>
+        <div className="field">
+          <label htmlFor="trip-timezone" className="field__label">
+            Time zone
+          </label>
+          <select
+            id="trip-timezone"
+            className="field__input"
+            value={fields.timezone}
+            onChange={set('timezone')}
+            aria-invalid={errors.timezone ? true : undefined}
+            aria-describedby="trip-timezone-message"
+          >
+            {timeZoneOptions(fields.timezone).map((zone) => (
+              <option key={zone} value={zone}>
+                {zone.replace(/_/g, ' ')}
+              </option>
+            ))}
+          </select>
+          {errors.timezone ? (
+            <span id="trip-timezone-message" className="field__error">
+              {errors.timezone}
+            </span>
+          ) : (
+            <span id="trip-timezone-message" className="field__hint">
+              Where the trip happens. Activity times show in{' '}
+              {zoneLabel(fields.timezone)} for everyone.
+            </span>
+          )}
         </div>
         <div className="actions">
           <button
