@@ -1,5 +1,4 @@
 // Session helpers kept free of React so they are easy to unit test.
-import { getMe } from '../api/auth';
 import { ApiError, apiRequest } from '../api/client';
 import type { LoginRequest, RegisterRequest, User } from '../api/types';
 
@@ -107,19 +106,10 @@ export function writeCachedUser(user: User | null): void {
  * Work out who is signed in when the app loads (US-02: stay signed in on
  * refresh). Returns null when there is no valid session.
  *
- * Prefers GET /auth/me. Until the backend ships it (it currently 404s), falls
- * back to the cached user, confirmed by an authenticated request so an
- * expired cookie still signs the user out.
+ * Confirm the cached user's session through the existing trips endpoint.
+ * The backend can renew the cookie automatically; a 401 clears the cached user.
  */
 export async function restoreSession(): Promise<User | null> {
-  try {
-    return await getMe();
-  } catch (error) {
-    if (!(error instanceof ApiError)) throw error;
-    if (error.status === 401) return null;
-    if (error.status !== 404) throw error;
-  }
-
   const cached = readCachedUser();
   if (!cached) return null;
   try {
