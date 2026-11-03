@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -20,8 +20,14 @@ def service():
     service.user_repository = Mock()
     service.repository = Mock()
     service.trip_invitation_repository.find_trip_for_update.return_value = Trip(
-        trip_id=12, organizer_id=7
+        trip_id=12,
+        organizer_id=7,
+        name="Lisbon offsite",
+        destination="Lisbon",
+        start_date=date(2026, 11, 20),
+        end_date=date(2026, 11, 23),
     )
+    service.repository.find_user.return_value = User(user_id=7, user_name="Olivia")
     service.trip_repository.find_membership.return_value = None
     service.repository.find_pending.return_value = None
     recipient = User(user_id=8, user_name="Alice", email="alice@example.com")
@@ -48,6 +54,14 @@ def test_create_invitation_commits_pending_record(service, identifier):
         7,
     )
     assert result.status == "PENDING" and result.responded_at is None
+    # The recipient cannot open the trip yet, so the invitation carries its details.
+    assert (result.trip_name, result.destination) == ("Lisbon offsite", "Lisbon")
+    assert (result.start_date, result.end_date) == (
+        date(2026, 11, 20),
+        date(2026, 11, 23),
+    )
+    assert result.invited_by_user_name == "Olivia"
+    service.repository.find_user.assert_called_once_with(7)
     service.session.commit.assert_called_once()
     service.session.rollback.assert_not_called()
 

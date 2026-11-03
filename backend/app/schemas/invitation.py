@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
@@ -41,3 +41,10 @@ class InvitationResponse(BaseModel):
     status: Literal["PENDING", "ACCEPTED", "DECLINED"]
     created_at: datetime
     responded_at: datetime | None
+    # A recipient is not a member yet, so they cannot fetch the trip itself; these
+    # fields let the inbox show which trip and who invited them (US-06).
+    trip_name: str
+    destination: str
+    start_date: date
+    end_date: date
+    invited_by_user_name: str

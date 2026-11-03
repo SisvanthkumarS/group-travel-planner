@@ -7,20 +7,8 @@ import { PlusIcon, QueryError, RoleChip } from '../components/bits';
 import { tripDates } from '../lib/format';
 import { CreateTripModal } from './CreateTripModal';
 
-/**
- * The backend currently returns invitations with IDs only. These optional
- * fields are what the team agreed to add for US-06; the UI uses them when
- * present and falls back otherwise.
- */
-type InvitationView = Invitation & {
-  trip_name?: string;
-  destination?: string;
-  start_date?: string;
-  end_date?: string;
-  invited_by_user_name?: string;
-};
-
-function InvitationRow({ invitation }: { invitation: InvitationView }) {
+/** US-06: a pending invitation names its trip, dates and Organizer. */
+function InvitationRow({ invitation }: { invitation: Invitation }) {
   const respond = useRespondToInvitation();
   const [error, setError] = useState<string | null>(null);
 
@@ -36,31 +24,18 @@ function InvitationRow({ invitation }: { invitation: InvitationView }) {
     }
   }
 
-  const when =
-    invitation.start_date && invitation.end_date
-      ? tripDates(invitation.start_date, invitation.end_date)
-      : null;
-
   return (
     <li className="invite-row">
       <div className="invite-row__text">
-        <span className="invite-row__title">
-          {invitation.trip_name ?? 'Trip invitation'}
-        </span>
+        <span className="invite-row__title">{invitation.trip_name}</span>
         <span className="invite-row__meta">
-          {invitation.invited_by_user_name ? (
-            <>
-              Invited by <strong>{invitation.invited_by_user_name}</strong>
-            </>
-          ) : (
-            'You were invited to plan a trip'
-          )}
-          {when && (
-            <>
-              {' · '}
-              <span className="mono">{when}</span>
-            </>
-          )}
+          {invitation.destination}
+          {' · '}
+          <span className="mono">
+            {tripDates(invitation.start_date, invitation.end_date)}
+          </span>
+          {' · '}
+          Invited by <strong>{invitation.invited_by_user_name}</strong>
         </span>
         {error && (
           <span className="field__error" role="alert">
@@ -93,9 +68,7 @@ function InvitationRow({ invitation }: { invitation: InvitationView }) {
 function Invitations() {
   const { data, error, refetch } = useInvitations();
   if (error) return <QueryError error={error} onRetry={() => refetch()} />;
-  const pending = (data ?? []).filter(
-    (i) => i.status === 'PENDING',
-  ) as InvitationView[];
+  const pending = (data ?? []).filter((i) => i.status === 'PENDING');
   if (pending.length === 0) return null;
 
   return (

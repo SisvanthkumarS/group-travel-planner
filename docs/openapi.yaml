@@ -840,6 +840,23 @@ components:
             format: date-time
           - type: 'null'
           title: Responded At
+        trip_name:
+          type: string
+          title: Trip Name
+        destination:
+          type: string
+          title: Destination
+        start_date:
+          type: string
+          format: date
+          title: Start Date
+        end_date:
+          type: string
+          format: date
+          title: End Date
+        invited_by_user_name:
+          type: string
+          title: Invited By User Name
       type: object
       required:
       - invitation_id
@@ -849,6 +866,11 @@ components:
       - status
       - created_at
       - responded_at
+      - trip_name
+      - destination
+      - start_date
+      - end_date
+      - invited_by_user_name
       title: InvitationResponse
     ItineraryItemResponse:
       properties:
