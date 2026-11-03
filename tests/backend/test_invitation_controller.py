@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from unittest.mock import Mock
 
 import pytest
@@ -98,6 +98,11 @@ def test_create_invitation_accepts_recipient_identifiers(
         status="PENDING",
         created_at=datetime.now(UTC),
         responded_at=None,
+        trip_name="Lisbon offsite",
+        destination="Lisbon",
+        start_date=date(2026, 11, 20),
+        end_date=date(2026, 11, 23),
+        invited_by_user_name="Olivia",
     )
     app.dependency_overrides[get_invitation_service] = lambda: service
     response = authenticated_client.post("/api/v1/trips/12/invitations", json=payload)
@@ -121,6 +126,11 @@ def test_controllers_delegate_authenticated_identity(
         status="PENDING",
         created_at=datetime.now(UTC),
         responded_at=None,
+        trip_name="Lisbon offsite",
+        destination="Lisbon",
+        start_date=date(2026, 11, 20),
+        end_date=date(2026, 11, 23),
+        invited_by_user_name="Olivia",
     )
     service = Mock(spec=InvitationService)
     service.create_invitation.return_value = invitation

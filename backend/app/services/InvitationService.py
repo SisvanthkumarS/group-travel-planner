@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.app.models import Invitation, TripMember
+from backend.app.models import Invitation, Trip, TripMember, User
 from backend.app.repositories.AuthRepository import AuthRepository
 from backend.app.repositories.InvitationRepository import InvitationRepository
 from backend.app.repositories.TripInvitationRepository import TripInvitationRepository
@@ -14,6 +14,24 @@ from backend.app.schemas.invitation import (
     InvitationResponse,
     RespondInvitationRequest,
 )
+
+
+def to_response(invitation: Invitation, trip: Trip, invited_by: User) -> InvitationResponse:
+    """The stored invitation plus the trip and inviter details the inbox shows (US-06)."""
+    return InvitationResponse(
+        invitation_id=invitation.invitation_id,
+        trip_id=invitation.trip_id,
+        invited_user_id=invitation.invited_user_id,
+        invited_by_user_id=invitation.invited_by_user_id,
+        status=invitation.status,
+        created_at=invitation.created_at,
+        responded_at=invitation.responded_at,
+        trip_name=trip.name,
+        destination=trip.destination,
+        start_date=trip.start_date,
+        end_date=trip.end_date,
+        invited_by_user_name=invited_by.user_name,
+    )
 
 
 class InvitationService:
@@ -75,7 +93,8 @@ class InvitationService:
                 responded_at=None,
             )
             saved_invitation = self.repository.add(invitation)
-            response = InvitationResponse.model_validate(saved_invitation)
+            organizer = self.repository.find_user(current_user_id)
+            response = to_response(saved_invitation, trip, organizer)
             self.session.commit()
             return response
         except IntegrityError as exc:
@@ -92,8 +111,8 @@ class InvitationService:
             raise
 
     def list_invitations(self, current_user_id: int) -> list[InvitationResponse]:
-        invitations = self.repository.list_for_user(current_user_id)
-        return [InvitationResponse.model_validate(invitation) for invitation in invitations]
+        rows = self.repository.list_for_user(current_user_id)
+        return [to_response(invitation, trip, invited_by) for invitation, trip, invited_by in rows]
 
     def respond_to_invitation(
         self, request: RespondInvitationRequest, current_user_id: int
@@ -134,7 +153,8 @@ class InvitationService:
 
             invitation.responded_at = datetime.now(UTC)
             saved_invitation = self.repository.save_response(invitation)
-            response = InvitationResponse.model_validate(saved_invitation)
+            invited_by = self.repository.find_user(saved_invitation.invited_by_user_id)
+            response = to_response(saved_invitation, trip, invited_by)
             self.session.commit()
             return response
         except Exception:
