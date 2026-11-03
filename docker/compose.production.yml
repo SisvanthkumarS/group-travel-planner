@@ -22,7 +22,7 @@ services:
   frontend:
     image: hubertchang/course:frontend-latest
     environment:
-      VITE_API_URL: http://localhost:8000/api/v1
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
     ports:
       - '3000:3000'
     depends_on:
