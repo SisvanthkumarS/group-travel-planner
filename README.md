@@ -36,8 +36,8 @@ implementation details are in [docs/architecture.md](docs/architecture.md).
   `timezone` field. Until updated, submitting that form returns HTTP 422.
 - Frontend activity inputs and display currently use the browser's timezone;
   backend date validation uses the trip's timezone. These can differ.
-- `GET /auth/me` is not implemented. Session restoration tries it, then falls
-  back to cached user display data after verifying the cookie with `GET /trips`.
+- Session restoration uses cached user display data after verifying the cookie
+  with the existing `GET /trips` endpoint.
 - Invitation responses contain IDs, without the trip name or organizer name.
 - The frontend requires eight-character registration passwords, but backend
   registration currently accepts passwords of one or more characters.

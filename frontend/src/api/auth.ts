@@ -12,10 +12,3 @@ export const login = (body: LoginRequest) =>
 
 export const logout = () =>
   apiRequest<void>('/auth/logout', { method: 'POST', auth: false });
-
-/**
- * The signed-in user, from the session cookie. Not in the backend yet; the
- * session restore code falls back gracefully while it returns 404.
- * Called during startup, so it must not trigger the sign-out handler.
- */
-export const getMe = () => apiRequest<User>('/auth/me', { auth: false });
