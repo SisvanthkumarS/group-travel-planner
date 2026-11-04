@@ -351,3 +351,234 @@ def test_failure_after_delete_restores_trip_members_and_invitations(
         )
         assert session.get(Invitation, invitation_id) is not None
     assert client.delete(f"/api/v1/trips/{trip['trip_id']}").status_code == 204
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"name": " Updated trip "},
+        {"timezone": " Asia/Shanghai "},
+        {
+            "name": "Updated complete trip",
+            "destination": "Boston",
+            "start_date": "2027-01-05",
+            "end_date": "2027-01-07",
+            "timezone": "America/Chicago",
+        },
+        {"destination": " Boston "},
+        {"start_date": "2026-11-02"},
+        {"end_date": "2026-11-01"},
+        {"name": "Same-day trip", "start_date": "2027-01-05", "end_date": "2027-01-05"},
+    ],
+)
+def test_organizer_can_patch_trip_and_other_fields_are_preserved(
+    client, database, changes
+):
+    engine, user_id = database
+    original = client.post("/api/v1/trips", json=BODY).json()
+    trip_id = original["trip_id"]
+    response = client.patch(f"/api/v1/trips/{trip_id}", json=changes)
+    assert response.status_code == 200, response.text
+    expected = original | {key: value.strip() for key, value in changes.items()}
+    assert response.json() == expected
+    assert client.get(f"/api/v1/trips/{trip_id}").json() | {
+        "members": []
+    } == expected | {"members": []}
+    assert client.get("/api/v1/trips").json() == [expected]
+    with Session(engine) as session:
+        persisted = session.get(Trip, trip_id)
+        assert persisted.name == expected["name"]
+        assert persisted.destination == expected["destination"]
+        assert persisted.start_date.isoformat() == expected["start_date"]
+        assert persisted.end_date.isoformat() == expected["end_date"]
+        assert (
+            persisted.organizer_id == user_id
+            and persisted.timezone == expected["timezone"]
+        )
+        assert session.get(TripMember, (trip_id, user_id)).role == "ORGANIZER"
+
+
+@pytest.mark.parametrize("role", ["MEMBER", None])
+def test_member_and_nonmember_cannot_patch_trip(client, database, role):
+    engine, _ = database
+    original = client.post("/api/v1/trips", json=BODY).json()
+    with Session(engine) as session:
+        other = User(
+            user_name=uuid4().hex[:20],
+            email=f"{uuid4().hex}@example.com",
+            password_hash="unused",
+        )
+        session.add(other)
+        session.flush()
+        other_id = other.user_id
+        if role:
+            session.add(
+                TripMember(trip_id=original["trip_id"], user_id=other_id, role=role)
+            )
+        session.commit()
+    try:
+        client.cookies.set("access_token", security.create_access_token(other_id))
+        response = client.patch(
+            f"/api/v1/trips/{original['trip_id']}", json={"name": "Unauthorized"}
+        )
+        assert response.status_code == 403, response.text
+        assert response.json()["detail"] == "Only the Organizer can update this trip."
+        with Session(engine) as session:
+            assert session.get(Trip, original["trip_id"]).name == original["name"]
+    finally:
+        with engine.begin() as connection:
+            connection.execute(delete(User).where(User.user_id == other_id))
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"start_date": "2026-11-04"},
+        {"end_date": "2026-10-31"},
+        {"start_date": "2027-01-06", "end_date": "2027-01-05"},
+        {"name": "Must not be saved", "end_date": "2026-10-31"},
+    ],
+)
+def test_invalid_patch_dates_return_422_without_changing_trip(
+    client, database, changes
+):
+    engine, _ = database
+    original = client.post("/api/v1/trips", json=BODY).json()
+    response = client.patch(f"/api/v1/trips/{original['trip_id']}", json=changes)
+    assert response.status_code == 422, response.text
+    assert "start_date must be on or before end_date." in response.text
+    with Session(engine) as session:
+        persisted = session.get(Trip, original["trip_id"])
+        assert persisted.name == original["name"]
+        assert persisted.start_date.isoformat() == original["start_date"]
+        assert persisted.end_date.isoformat() == original["end_date"]
+
+
+def test_patch_missing_trip_returns_404(client):
+    response = client.patch(
+        "/api/v1/trips/9223372036854775807", json={"name": "Missing"}
+    )
+    assert response.status_code == 404
+
+
+def test_patch_failure_rolls_back_and_can_be_retried(client, database):
+    engine, _ = database
+    original = client.post("/api/v1/trips", json=BODY).json()
+    save = TripRepository.save
+
+    def fail_after_flush(repository, trip):
+        save(repository, trip)
+        raise RuntimeError("Simulated update persistence failure")
+
+    with patch.object(TripRepository, "save", fail_after_flush):
+        assert (
+            client.patch(
+                f"/api/v1/trips/{original['trip_id']}", json={"name": "Updated"}
+            ).status_code
+            == 500
+        )
+    with Session(engine) as session:
+        assert session.get(Trip, original["trip_id"]).name == original["name"]
+    assert (
+        client.patch(
+            f"/api/v1/trips/{original['trip_id']}", json={"name": "Updated"}
+        ).status_code
+        == 200
+    )
+
+
+def test_concurrent_partial_date_updates_keep_a_valid_date_range(client, database):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from fastapi.exceptions import RequestValidationError
+
+    from backend.app.schemas.trip import UpdateTripRequest
+    from backend.app.services.TripService import TripService
+
+    engine, user_id = database
+    original = client.post("/api/v1/trips", json=BODY).json()
+    barrier = Barrier(2)
+
+    def update(changes):
+        with Session(engine) as session:
+            cached = session.get(Trip, original["trip_id"])
+            assert cached is not None
+            barrier.wait(timeout=10)
+            try:
+                TripService(session).update_trip(
+                    original["trip_id"], UpdateTripRequest(**changes), user_id
+                )
+                return 200
+            except RequestValidationError:
+                return 422
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(update, {"start_date": "2026-11-02"}),
+            executor.submit(update, {"end_date": "2026-11-01"}),
+        ]
+        assert sorted(future.result(timeout=20) for future in futures) == [200, 422]
+    with Session(engine) as session:
+        persisted = session.get(Trip, original["trip_id"])
+        assert persisted.start_date <= persisted.end_date
+
+
+def test_updated_trip_details_are_visible_to_group_members(client, database):
+    engine, organizer_id = database
+    trip = client.post("/api/v1/trips", json=BODY).json()
+    with Session(engine) as session:
+        member = User(
+            user_name=uuid4().hex[:20],
+            email=f"{uuid4().hex}@example.com",
+            password_hash="unused",
+        )
+        session.add(member)
+        session.flush()
+        member_id = member.user_id
+        session.add(
+            TripMember(trip_id=trip["trip_id"], user_id=member_id, role="MEMBER")
+        )
+        session.commit()
+    try:
+        changes = {
+            "name": "Group-agreed plan",
+            "timezone": "Asia/Tokyo",
+            "destination": "Boston",
+            "start_date": "2027-01-05",
+            "end_date": "2027-01-07",
+        }
+        response = client.patch(f"/api/v1/trips/{trip['trip_id']}", json=changes)
+        assert response.status_code == 200, response.text
+        expected = trip | changes
+        client.cookies.set("access_token", security.create_access_token(member_id))
+        details = client.get(f"/api/v1/trips/{trip['trip_id']}")
+        assert details.status_code == 200
+        detail_body = details.json()
+        assert {key: detail_body[key] for key in expected} == expected
+        assert {row["user_id"]: row["role"] for row in detail_body["members"]} == {
+            organizer_id: "ORGANIZER",
+            member_id: "MEMBER",
+        }
+        assert client.get("/api/v1/trips").json() == [expected]
+    finally:
+        with engine.begin() as connection:
+            connection.execute(delete(User).where(User.user_id == member_id))
+
+
+@pytest.mark.parametrize(
+    "timezone", ["Not/A_Timezone", "../America/New_York", " ", None]
+)
+def test_invalid_timezone_patch_leaves_all_trip_details_unchanged(
+    client, database, timezone
+):
+    engine, _ = database
+    original = client.post("/api/v1/trips", json=BODY).json()
+    response = client.patch(
+        f"/api/v1/trips/{original['trip_id']}",
+        json={"name": "Must not save", "timezone": timezone},
+    )
+    assert response.status_code == 422
+    with Session(engine) as session:
+        trip = session.get(Trip, original["trip_id"])
+        assert trip.name == original["name"] and trip.timezone == original["timezone"]

@@ -31,6 +31,7 @@ ENDPOINTS = [
     ("GET", "/api/v1/trips", None),
     ("GET", "/api/v1/trips/12", None),
     ("DELETE", "/api/v1/trips/12", None),
+    ("PATCH", "/api/v1/trips/12", {"name": "Updated trip"}),
 ]
 
 
@@ -87,7 +88,7 @@ def test_create_trip_requires_explicit_timezone(authenticated_client):
     assert response.json()["detail"][0]["loc"] == ["body", "timezone"]
 
 
-@pytest.mark.parametrize("method", ["GET", "DELETE"])
+@pytest.mark.parametrize("method", ["GET", "DELETE", "PATCH"])
 def test_trip_id_must_be_positive(authenticated_client, method):
     assert authenticated_client.request(method, "/api/v1/trips/0").status_code == 422
 
@@ -137,3 +138,72 @@ def test_controllers_delegate_identity_and_map_success_responses(authenticated_c
     deleted = authenticated_client.delete("/api/v1/trips/12")
     assert deleted.status_code == 204 and deleted.content == b""
     service.delete_trip.assert_called_once_with(12, 7)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"name": " "},
+        {"destination": " "},
+        {"name": None},
+        {"start_date": None},
+        {"end_date": "2026-02-30"},
+        {"organizer_id": 8},
+        {"name": "Updated", "trip_id": 99},
+        {"timezone": "Not/A_Timezone"},
+        {"timezone": "../America/New_York"},
+        {"timezone": " "},
+        {"timezone": None},
+    ],
+)
+def test_patch_trip_rejects_invalid_or_unsupported_fields(authenticated_client, body):
+    service = Mock(spec=TripService)
+    app.dependency_overrides[get_trip_service] = lambda: service
+    response = authenticated_client.patch("/api/v1/trips/12", json=body)
+    assert response.status_code == 422
+    service.update_trip.assert_not_called()
+
+
+def test_patch_controller_delegates_authenticated_identity(authenticated_client):
+    service = Mock(spec=TripService)
+    service.update_trip.return_value = TripResponse(
+        trip_id=12,
+        name="Updated",
+        destination="New York",
+        start_date=date(2026, 11, 1),
+        end_date=date(2026, 11, 3),
+        timezone="America/New_York",
+        organizer_id=7,
+    )
+    app.dependency_overrides[get_trip_service] = lambda: service
+    response = authenticated_client.patch(
+        "/api/v1/trips/12", json={"name": " Updated "}
+    )
+    assert response.status_code == 200
+    trip_id, body, actor_id = service.update_trip.call_args.args
+    assert (trip_id, actor_id) == (12, 7)
+    assert body.model_dump(exclude_unset=True) == {"name": "Updated"}
+
+
+@pytest.mark.parametrize("timezone", ["UTC", "Asia/Shanghai", " America/Los_Angeles "])
+def test_patch_trip_accepts_a_valid_timezone(authenticated_client, timezone):
+    service = Mock(spec=TripService)
+    service.update_trip.return_value = TripResponse(
+        trip_id=12,
+        name="NYC",
+        destination="New York",
+        start_date=date(2026, 11, 1),
+        end_date=date(2026, 11, 3),
+        timezone=timezone.strip(),
+        organizer_id=7,
+    )
+    app.dependency_overrides[get_trip_service] = lambda: service
+    response = authenticated_client.patch(
+        "/api/v1/trips/12", json={"timezone": timezone}
+    )
+    assert response.status_code == 200
+    trip_id, body, actor = service.update_trip.call_args.args
+    assert (trip_id, actor) == (12, 7)
+    assert body.model_dump(exclude_unset=True) == {"timezone": timezone.strip()}
+    assert response.json()["timezone"] == timezone.strip()

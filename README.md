@@ -12,7 +12,7 @@ The FastAPI backend supports:
 
 - Registration, email/username login, and logout.
 - Trip creation with an organizer membership, member-only trip details, listing,
-  and organizer-only deletion.
+  organizer-only partial updates (US-18), and organizer-only deletion.
 - Invitations to registered users, acceptance/decline, and an eight-participant
   limit including the organizer.
 - Activity proposals with description, estimated cost, and timezone-aware times;

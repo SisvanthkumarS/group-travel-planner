@@ -1,4 +1,6 @@
 from fastapi import HTTPException, status
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from backend.app.models import TripMember
@@ -9,11 +11,12 @@ from backend.app.schemas.trip import (
     TripDetailResponse,
     TripMemberResponse,
     TripResponse,
+    UpdateTripRequest,
 )
 
 
 class TripService:
-    """Trip business rules and transaction boundaries, ready for implementation."""
+    """Trip business rules and transaction boundaries."""
 
     def __init__(self, session: Session):
         self.session = session
@@ -51,6 +54,40 @@ class TripService:
     def list_trips(self, current_user_id: int) -> list[TripResponse]:
         trips = self.repository.list_for_user(current_user_id)
         return [TripResponse.model_validate(trip) for trip in trips]
+
+    def update_trip(
+        self, trip_id: int, request: UpdateTripRequest, current_user_id: int
+    ) -> TripResponse:
+        try:
+            # Use the same trip-row lock as activity writes. Re-read after waiting
+            # so concurrent partial date edits are validated against current data.
+            trip = self.repository.find_by_id_for_update(trip_id)
+            if trip is None:
+                raise HTTPException(status_code=404, detail="Trip not found.")
+            if trip.organizer_id != current_user_id:
+                raise HTTPException(
+                    status_code=403, detail="Only the Organizer can update this trip."
+                )
+
+            changes = request.model_dump(exclude_unset=True)
+            effective = {field: getattr(trip, field) for field in CreateTripRequest.model_fields}
+            try:
+                # Reuse create's text, timezone and start/end-date validation,
+                # including when only one date is supplied in the PATCH body.
+                CreateTripRequest.model_validate(effective | changes)
+            except ValidationError as exc:
+                errors = [{**error, "loc": ("body", *error["loc"])} for error in exc.errors()]
+                raise RequestValidationError(errors, body=changes) from exc
+
+            for field, value in changes.items():
+                setattr(trip, field, value)
+            saved_trip = self.repository.save(trip)
+            response = TripResponse.model_validate(saved_trip)
+            self.session.commit()
+            return response
+        except Exception:
+            self.session.rollback()
+            raise
 
     def get_trip(self, trip_id: int, current_user_id: int) -> TripDetailResponse:
         trip = self.repository.find_by_id(trip_id)
