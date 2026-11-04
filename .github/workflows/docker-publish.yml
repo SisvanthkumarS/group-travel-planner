@@ -31,7 +31,7 @@ jobs:
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
-            echo "::error::Set the DOCKERHUB_USERNAME repository variable and DOCKERHUB_TOKEN repository secret."
+            echo "::error::Set the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets."
             exit 1
           fi
 
@@ -50,8 +50,9 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/course
           tags: |
-            type=raw,value=${{ matrix.service }}-latest,enable=${{ github.ref == 'refs/heads/hc-dev' }}
-            type=raw,value=${{ matrix.service }}-{{date 'YYYYMMDD' tz='America/New_York'}}
+            type=raw,value=${{ matrix.service }}-latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ matrix.service }}-{{branch}}-{{sha}}
+            type=raw,value=${{ matrix.service }}-{{branch}}-{{date 'YYYYMMDD-HHmmss' tz='America/New_York'}}
 
       - name: Build and push
         uses: docker/build-push-action@v7
@@ -61,5 +62,6 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}-${{ github.ref_name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-${{ github.ref_name }}
