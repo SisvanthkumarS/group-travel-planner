@@ -10,6 +10,9 @@ CREATE TABLE users (
     email TEXT NOT NULL
         CHECK (LENGTH(TRIM(email)) > 0),
 
+    user_name VARCHAR(30) NOT NULL
+        CHECK (LENGTH(TRIM(user_name)) BETWEEN 1 AND 30),
+
     password_hash TEXT NOT NULL,
 
     created_at TIMESTAMPTZ NOT NULL
@@ -19,6 +22,10 @@ CREATE TABLE users (
 -- Email uniqueness, ignoring letter case
 CREATE UNIQUE INDEX uq_users_email_lower
     ON users (LOWER(TRIM(email)));
+
+-- Username uniqueness is case-sensitive, matching backend login behavior.
+CREATE UNIQUE INDEX uq_users_user_name
+    ON users (user_name);
 
 
 -- =========================================
@@ -35,6 +42,8 @@ CREATE TABLE trips (
 
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
+
+    timezone TEXT NOT NULL DEFAULT 'UTC',
 
     organizer_id BIGINT NOT NULL
         REFERENCES users(user_id)
@@ -116,13 +125,9 @@ CREATE UNIQUE INDEX uq_pending_invitation
 CREATE INDEX idx_invitations_invited_user
     ON invitations(invited_user_id);
 
-COMMIT;
 
-
-
--- proposals polls poll_eligibility votes itinerary_items
 -- =========================================
--- 5. Proposals
+-- 5. Proposals (Alembic revision 0006)
 -- =========================================
 CREATE TABLE proposals (
     proposal_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -131,50 +136,64 @@ CREATE TABLE proposals (
         REFERENCES trips(trip_id)
         ON DELETE CASCADE,
 
-    author_user_id BIGINT NOT NULL
-        REFERENCES users(user_id)
-        ON DELETE CASCADE,
+    author_id BIGINT NOT NULL
+        REFERENCES users(user_id),
 
     title TEXT NOT NULL
         CHECK (LENGTH(TRIM(title)) > 0),
 
-    location TEXT NOT NULL
-        CHECK (LENGTH(TRIM(location)) > 0),
-
-    suggested_start_at TIMESTAMPTZ NOT NULL,
-
     description TEXT NOT NULL
         CHECK (LENGTH(TRIM(description)) > 0),
 
-    estimated_cost NUMERIC(12, 2) NOT NULL
+    estimated_cost NUMERIC NOT NULL
         CHECK (estimated_cost >= 0),
 
+    location TEXT NOT NULL
+        CHECK (LENGTH(TRIM(location)) > 0),
+
+    starts_at TIMESTAMPTZ NOT NULL,
+    ends_at TIMESTAMPTZ NOT NULL,
+
     status TEXT NOT NULL DEFAULT 'PENDING'
-        CHECK (
-            status IN (
-                'PENDING',
-                'OPEN',
-                'APPROVED',
-                'REJECTED',
-                'TIED',
-                'WITHDRAWN',
-                'CANCELLED'
-            )
-        ),
+        CHECK (status IN (
+            'PENDING', 'OPEN', 'TIED', 'APPROVED',
+            'REJECTED', 'WITHDRAWN', 'CANCELLED'
+        )),
 
-    created_at TIMESTAMPTZ NOT NULL
-        DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT uq_proposals_trip_proposal
-        UNIQUE (trip_id, proposal_id)
+    CONSTRAINT ck_proposals_times CHECK (ends_at > starts_at)
 );
 
--- Find proposals belonging to a trip
-CREATE INDEX idx_proposals_trip_id
+CREATE INDEX idx_proposals_trip
     ON proposals(trip_id);
 
+
 -- =========================================
--- 6. Polls
+-- 6. Itinerary items (revision 0006)
+-- =========================================
+CREATE TABLE itinerary_items (
+    item_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    proposal_id BIGINT NOT NULL UNIQUE
+        REFERENCES proposals(proposal_id)
+        ON DELETE CASCADE,
+
+    status TEXT NOT NULL DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'CANCELLED')),
+
+    canceled_at TIMESTAMPTZ,
+
+    CONSTRAINT ck_itinerary_items_status CHECK (
+        (status = 'ACTIVE' AND canceled_at IS NULL)
+        OR
+        (status = 'CANCELLED' AND canceled_at IS NOT NULL)
+    )
+);
+
+
+-- =========================================
+-- 7. Polls (revision 0006)
 -- =========================================
 CREATE TABLE polls (
     poll_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -183,180 +202,108 @@ CREATE TABLE polls (
         REFERENCES proposals(proposal_id)
         ON DELETE CASCADE,
 
-    opened_by_user_id BIGINT NOT NULL
-        REFERENCES users(user_id),
+    status TEXT NOT NULL DEFAULT 'OPEN'
+        CHECK (status IN ('OPEN', 'CLOSED', 'CANCELED')),
 
-    opened_at TIMESTAMPTZ NOT NULL
-        DEFAULT CURRENT_TIMESTAMP,
-
-    closes_at TIMESTAMPTZ NOT NULL,
-
+    deadline TIMESTAMPTZ NOT NULL,
+    opened_at TIMESTAMPTZ NOT NULL,
     closed_at TIMESTAMPTZ,
 
-    status TEXT NOT NULL DEFAULT 'OPEN'
-        CHECK (status IN ('OPEN', 'CLOSED')),
-
-    close_reason TEXT
-        CHECK (
-            close_reason IN ('DEADLINE', 'WITHDRAWAL')
-        ),
-
-    ballot_outcome TEXT
-        CHECK (
-            ballot_outcome IN (
-                'APPROVED',
-                'REJECTED',
-                'TIED'
-            )
-        ),
-
-    tie_resolution TEXT
-        CHECK (
-            tie_resolution IN ('APPROVED', 'REJECTED')
-        ),
+    decision TEXT,
+    outcome TEXT,
 
     resolved_by_user_id BIGINT
         REFERENCES users(user_id),
 
     resolved_at TIMESTAMPTZ,
 
-    CONSTRAINT ck_polls_time
-        CHECK (closes_at > opened_at),
-
-    CONSTRAINT ck_polls_status
-        CHECK (
-            (
-                status = 'OPEN'
-                AND closed_at IS NULL
-                AND close_reason IS NULL
-                AND ballot_outcome IS NULL
-                AND tie_resolution IS NULL
-                AND resolved_by_user_id IS NULL
-                AND resolved_at IS NULL
-            )
-            OR
-            (
-                status = 'CLOSED'
-                AND closed_at IS NOT NULL
-                AND close_reason IS NOT NULL
-            )
-        ),
-
-    CONSTRAINT ck_polls_outcome
-        CHECK (
-            (
-                close_reason = 'DEADLINE'
-                AND ballot_outcome IS NOT NULL
-            )
-            OR
-            (
-                close_reason = 'WITHDRAWAL'
-                AND ballot_outcome IS NULL
-                AND tie_resolution IS NULL
-                AND resolved_by_user_id IS NULL
-                AND resolved_at IS NULL
-            )
-            OR
-            (
-                close_reason IS NULL
-                AND ballot_outcome IS NULL
-            )
-        ),
-
-    CONSTRAINT ck_polls_tie_resolution
-        CHECK (
-            (
-                tie_resolution IS NULL
-                AND resolved_by_user_id IS NULL
-                AND resolved_at IS NULL
-            )
-            OR
-            (
-                ballot_outcome = 'TIED'
-                AND tie_resolution IS NOT NULL
-                AND resolved_by_user_id IS NOT NULL
-                AND resolved_at IS NOT NULL
-            )
+    CONSTRAINT ck_polls_resolution CHECK (
+        (decision IS NULL AND resolved_by_user_id IS NULL AND resolved_at IS NULL)
+        OR
+        (
+            decision IN ('APPROVE', 'REJECT')
+            AND resolved_by_user_id IS NOT NULL
+            AND resolved_at IS NOT NULL
+            AND status = 'CLOSED'
         )
+    ),
+
+    CONSTRAINT ck_polls_outcome CHECK (
+        (status = 'CLOSED' AND outcome IN ('APPROVED', 'REJECTED', 'TIED'))
+        OR
+        (status IN ('OPEN', 'CANCELED') AND outcome IS NULL)
+    ),
+
+    CONSTRAINT ck_polls_closed_at CHECK (
+        (status = 'OPEN' AND closed_at IS NULL)
+        OR
+        (status IN ('CLOSED', 'CANCELED') AND closed_at IS NOT NULL)
+    ),
+
+    CONSTRAINT ck_polls_deadline CHECK (deadline > opened_at)
 );
 
+CREATE INDEX idx_polls_status_deadline
+    ON polls(status, deadline);
+
+
 -- =========================================
--- 7. Poll Eligibility
+-- 8. Eligible voters (revision 0006)
 -- =========================================
-CREATE TABLE poll_eligibility (
+CREATE TABLE eligible_voters (
     poll_id BIGINT NOT NULL
         REFERENCES polls(poll_id)
         ON DELETE CASCADE,
 
     user_id BIGINT NOT NULL
-        REFERENCES users(user_id)
-        ON DELETE CASCADE,
-
-    recorded_at TIMESTAMPTZ NOT NULL
-        DEFAULT CURRENT_TIMESTAMP,
+        REFERENCES users(user_id),
 
     PRIMARY KEY (poll_id, user_id)
 );
 
--- =========================================
--- 8. Votes
--- =========================================
-CREATE TABLE votes (
-    poll_id BIGINT NOT NULL,
 
+-- =========================================
+-- 9. Vote history (revision 0006)
+-- =========================================
+CREATE TABLE vote_history (
+    event_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    poll_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
 
     choice TEXT NOT NULL
         CHECK (choice IN ('YES', 'NO')),
 
-    updated_at TIMESTAMPTZ NOT NULL
-        DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT fk_vote_history_eligible_voter
+        FOREIGN KEY (poll_id, user_id)
+        REFERENCES eligible_voters(poll_id, user_id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX idx_vote_history_poll
+    ON vote_history(poll_id, event_id);
+
+
+-- =========================================
+-- 10. Current votes (revision 0006)
+-- =========================================
+CREATE TABLE votes (
+    poll_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+
+    choice TEXT NOT NULL
+        CHECK (choice IN ('YES', 'NO')),
+
+    updated_at TIMESTAMPTZ NOT NULL,
 
     PRIMARY KEY (poll_id, user_id),
 
-    CONSTRAINT fk_votes_eligibility
+    CONSTRAINT fk_votes_eligible_voter
         FOREIGN KEY (poll_id, user_id)
-        REFERENCES poll_eligibility(poll_id, user_id)
+        REFERENCES eligible_voters(poll_id, user_id)
         ON DELETE CASCADE
 );
 
--- =========================================
--- 9. Itinerary Items
--- =========================================
-CREATE TABLE itinerary_items (
-    item_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    trip_id BIGINT NOT NULL,
-
-    proposal_id BIGINT NOT NULL UNIQUE,
-
-    scheduled_start_at TIMESTAMPTZ NOT NULL,
-
-    status TEXT NOT NULL DEFAULT 'APPROVED'
-        CHECK (
-            status IN ('APPROVED', 'CANCELLED')
-        ),
-
-    CONSTRAINT fk_itinerary_trip
-        FOREIGN KEY (trip_id)
-        REFERENCES trips(trip_id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_itinerary_proposal
-        FOREIGN KEY (trip_id, proposal_id)
-        REFERENCES proposals(trip_id, proposal_id)
-        ON DELETE CASCADE
-);
-
--- Support efficient itinerary queries
-CREATE INDEX idx_itinerary_trip_status_start
-    ON itinerary_items (
-        trip_id,
-        status,
-        scheduled_start_at
-    );
-
--- Ensure at most one organizer per trip
-CREATE UNIQUE INDEX uq_trip_members_one_organizer
-    ON trip_members(trip_id)
-    WHERE role = 'ORGANIZER';
+COMMIT;
