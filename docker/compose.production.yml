@@ -3,14 +3,34 @@ include:
 services:
   backend:
     image: hubertchang/course:backend-latest
-    working_dir: /app
+    command:
+      [
+        'uvicorn',
+        'backend.app.main:app',
+        '--app-dir',
+        '/opt/app',
+        '--host',
+        '0.0.0.0',
+        '--port',
+        '8000',
+        '--ssl-certfile',
+        '/opt/app/certs/fullchain.pem',
+        '--ssl-keyfile',
+        '/opt/app/certs/privkey.pem',
+        '--reload',
+        '--reload-dir',
+        '/opt/app/backend',
+      ]
+    working_dir: /opt/app
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
       JWT_SECRET: ${JWT_SECRET}
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
-      CORS_ORIGINS: '["http://localhost:3000"]'
+      CORS_ORIGINS: '["https://localhost:3000"]'
+    volumes:
+      - ../certs:/opt/app/certs:ro
     ports:
       - '8000:8000'
     depends_on:
@@ -21,8 +41,24 @@ services:
 
   frontend:
     image: hubertchang/course:frontend-latest
+    command:
+      [
+        'serve',
+        '-s',
+        'dist',
+        '-c',
+        '/app/serve.json',
+        '-l',
+        'tcp://0.0.0.0:3000',
+        '--ssl-cert',
+        '/app/certs/fullchain.pem',
+        '--ssl-key',
+        '/app/certs/privkey.pem',
+      ]
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
+      VITE_API_URL: ${VITE_API_URL:-https://localhost:8000/api/v1}
+    volumes:
+      - ../certs:/app/certs:ro
     ports:
       - '3000:3000'
     depends_on:

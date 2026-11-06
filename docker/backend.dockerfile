@@ -28,4 +28,7 @@ USER app:app
 EXPOSE 8000
 WORKDIR /
 
-CMD ["/bin/sh", "/startup.sh"]
+ENTRYPOINT ["/bin/sh", "/startup.sh"]
+CMD ["uvicorn", "backend.app.main:app", "--app-dir", \
+    "/opt/app", "--host", "0.0.0.0", "--port", \
+    "8000", "--reload", "--reload-dir", "/opt/app/backend"]
