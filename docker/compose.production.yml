@@ -1,6 +1,36 @@
 include:
   - ./compose.base.yml
 services:
+  localhost-tls:
+    image: alpine/openssl:3.5.9
+    restart: 'no'
+    command:
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-sha256',
+        '-noenc',
+        '-days',
+        '365',
+        '-subj',
+        '/CN=localhost',
+        '-addext',
+        'subjectAltName=DNS:localhost,IP:127.0.0.1,IP:::1',
+        '-addext',
+        'basicConstraints=critical,CA:FALSE',
+        '-addext',
+        'keyUsage=critical,digitalSignature,keyEncipherment',
+        '-addext',
+        'extendedKeyUsage=serverAuth',
+        '-keyout',
+        '/certs/privkey.pem',
+        '-out',
+        '/certs/fullchain.pem',
+      ]
+    volumes:
+      - ./certs:/certs
   backend:
     image: hubertchang/course:backend-latest
     command:
@@ -30,7 +60,7 @@ services:
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
       CORS_ORIGINS: '["https://localhost:3000"]'
     volumes:
-      - ../certs:/opt/app/certs:ro
+      - ./certs:/opt/app/certs:ro
     ports:
       - '8000:8000'
     depends_on:
@@ -38,6 +68,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      localhost-tls:
+        condition: service_completed_successfully
 
   frontend:
     image: hubertchang/course:frontend-latest
@@ -58,7 +90,7 @@ services:
     environment:
       VITE_API_URL: ${VITE_API_URL:-https://localhost:8000/api/v1}
     volumes:
-      - ../certs:/app/certs:ro
+      - ./certs:/app/certs:ro
     ports:
       - '3000:3000'
     depends_on:

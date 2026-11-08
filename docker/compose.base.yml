@@ -25,6 +25,7 @@ services:
   postgres:
     # image: postgres:17-alpine
     image: postgis/postgis:17-3.6-alpine
+    platform: linux/amd64
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
