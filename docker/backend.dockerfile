@@ -15,8 +15,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     APP_ENV="development" \
     PATH="/opt/venv/bin:$PATH"
 
-RUN groupadd --gid 10001 app \
-    && useradd --uid 10001 --gid app --create-home \
+RUN groupadd --gid 1000 app \
+    && useradd --uid 1000 --gid app --create-home \
         --shell /usr/sbin/nologin app
 
 WORKDIR /opt/app
