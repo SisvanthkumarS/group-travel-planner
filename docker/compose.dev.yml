@@ -2,9 +2,7 @@ include:
   - ./compose.base.yml
 services:
   backend:
-    build:
-      context: ..
-      dockerfile: docker/backend.dockerfile
+    image: astral/uv:0.13.5-debian-slim
     working_dir: /opt/app
     environment:
       APP_NAME: ${APP_NAME}
@@ -20,6 +18,7 @@ services:
       JWT_REFRESH_COOKIE_NAME: ${JWT_REFRESH_COOKIE_NAME:-refresh_token}
       JWT_COOKIE_SECURE: ${JWT_COOKIE_SECURE:-false}
       CORS_ORIGINS: '["http://localhost:5173"]'
+    command: ['sleep', 'infinity']
     ports:
       - '8000:8000'
     volumes:
@@ -29,18 +28,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    healthcheck:
-      test:
-        [
-          'CMD',
-          'python',
-          '-c',
-          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/openapi.json', timeout=3)",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-      start_period: 15s
 
   frontend:
     image: node:26-alpine
@@ -66,19 +53,7 @@ services:
       - frontend_workspace_modules:/opt/app/frontend/node_modules
     depends_on:
       backend:
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "fetch('http://localhost:5173').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 24
-      start_period: 30s
+        condition: service_started
 
 volumes:
   frontend_modules:
