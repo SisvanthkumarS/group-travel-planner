@@ -15,8 +15,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     APP_ENV="development" \
     PATH="/opt/venv/bin:$PATH"
 
-RUN groupadd --gid 10001 app \
-    && useradd --uid 10001 --gid app --create-home \
+RUN groupadd --gid 1000 app \
+    && useradd --uid 1000 --gid app --create-home \
         --shell /usr/sbin/nologin app
 
 WORKDIR /opt/app
@@ -28,4 +28,7 @@ USER app:app
 EXPOSE 8000
 WORKDIR /
 
-CMD ["/bin/sh", "/startup.sh"]
+ENTRYPOINT ["/bin/sh", "/startup.sh"]
+CMD ["uvicorn", "backend.app.main:app", "--app-dir", \
+    "/opt/app", "--host", "0.0.0.0", "--port", \
+    "8000", "--reload", "--reload-dir", "/opt/app/backend"]

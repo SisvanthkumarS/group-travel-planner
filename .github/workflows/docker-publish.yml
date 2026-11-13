@@ -2,7 +2,7 @@ name: Build and push Docker images
 
 on:
   push:
-    branches: [main, hc-dev]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -50,7 +50,7 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/course
           tags: |
-            type=raw,value=${{ matrix.service }}-latest,enable=${{ github.ref == 'refs/heads/hc-dev' }}
+            type=raw,value=${{ matrix.service }}-latest
             type=raw,value=${{ matrix.service }}-{{date 'YYYYMMDD' tz='America/New_York'}}
 
       - name: Build and push
