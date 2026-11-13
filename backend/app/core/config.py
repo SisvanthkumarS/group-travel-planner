@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     poll_scheduler_enabled: bool = True
     poll_scheduler_interval_seconds: float = Field(default=5, gt=0)
     cors_origins: list[str] = ["http://localhost:5173"]
+    openai_api_key: SecretStr | None = None
+    openai_model: str = "gpt-4o-mini"
+    openai_timeout_seconds: float = Field(default=30, gt=0)
 
     @model_validator(mode="after")
     def validate_cookie_names(self):

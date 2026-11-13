@@ -89,8 +89,14 @@ class TripService:
             self.session.rollback()
             raise
 
-    def get_trip(self, trip_id: int, current_user_id: int) -> TripDetailResponse:
-        trip = self.repository.find_by_id(trip_id)
+    def require_trip_member(
+        self, trip_id: int, current_user_id: int, *, lock: bool = False
+    ) -> Trip:
+        """Verify membership, optionally locking the trip until the caller ends the transaction."""
+        if lock:
+            trip = self.repository.find_by_id_for_update(trip_id)
+        else:
+            trip = self.repository.find_by_id(trip_id)
         if trip is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found.")
 
@@ -101,6 +107,10 @@ class TripService:
                 detail="Trip membership required.",
             )
 
+        return trip
+
+    def get_trip(self, trip_id: int, current_user_id: int) -> TripDetailResponse:
+        trip = self.require_trip_member(trip_id, current_user_id)
         members = [
             TripMemberResponse(
                 user_id=member.user_id,
