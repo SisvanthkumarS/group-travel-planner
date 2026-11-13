@@ -24,6 +24,11 @@ def test_documentation_and_api_contract():
         "/api/v1/polls/{poll_id}/resolve",
         "/api/v1/trips/{trip_id}/itinerary",
         "/api/v1/trips/{trip_id}/itinerary/{item_id}",
+        "/api/v1/trips/{trip_id}/chats",
+        "/api/v1/chats/{chat_id}",
+        "/api/v1/chats/{chat_id}/context",
+        "/api/v1/chats/{chat_id}/messages",
+        "/api/v1/chats/{chat_id}/drafts/{draft_id}",
     }
     assert client.get("/docs").status_code == 200
 

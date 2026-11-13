@@ -1,4 +1,5 @@
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from functools import wraps
 from zoneinfo import ZoneInfo
@@ -7,6 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.app.models import EligibleVoter, ItineraryItem, Poll, Proposal, Vote, VoteHistory
+from backend.app.models.trip import Trip
 from backend.app.repositories.ActivityRepository import ActivityRepository
 from backend.app.schemas.activity import (
     CreateProposalRequest,
@@ -135,32 +137,50 @@ class ActivityService:
     @transaction
     def create_proposal(self, trip_id: int, body: CreateProposalRequest, user_id: int):
         trip = self._trip(trip_id, user_id)
-        starts_at, ends_at = body.starts_at.astimezone(UTC), body.ends_at.astimezone(UTC)
-        if starts_at <= datetime.now(UTC):
+        proposal = self.add_pending_proposals(trip, [body], user_id)[0]
+        return ProposalResponse.model_validate(proposal)
+
+    def add_pending_proposals(
+        self, trip: Trip, bodies: Sequence[CreateProposalRequest], user_id: int
+    ) -> list[Proposal]:
+        """Validate and flush a batch. The caller must authorize and lock the trip."""
+        now = datetime.now(UTC)
+        proposals = [self._pending_proposal(trip, body, user_id, now) for body in bodies]
+        self.validate_proposal_capacity(trip.trip_id, len(proposals))
+        return [self.repository.add(proposal) for proposal in proposals]
+
+    def validate_proposal_capacity(self, trip_id: int, count: int) -> None:
+        if self.repository.proposal_count(trip_id) + count > 100:
+            raise HTTPException(409, "Trip has reached its limit of 100 proposals.")
+
+    def validate_proposal_schedule(
+        self, trip: Trip, body: CreateProposalRequest, now: datetime
+    ) -> None:
+        if body.starts_at <= now:
             self._invalid("starts_at", "starts_at must be later than the current time.")
         trip_timezone = ZoneInfo(trip.timezone)
-        if not trip.start_date <= starts_at.astimezone(trip_timezone).date() <= trip.end_date:
+        if not trip.start_date <= body.starts_at.astimezone(trip_timezone).date() <= trip.end_date:
             self._invalid(
                 "starts_at",
                 "Activity start must fall within the travel dates in the trip's timezone.",
             )
-        if not trip.start_date <= ends_at.astimezone(trip_timezone).date() <= trip.end_date:
+        if not trip.start_date <= body.ends_at.astimezone(trip_timezone).date() <= trip.end_date:
             self._invalid(
                 "ends_at", "Activity end must fall within the travel dates in the trip's timezone."
             )
-        if self.repository.proposal_count(trip_id) >= 100:
-            raise HTTPException(409, "Trip has reached its limit of 100 proposals.")
-        proposal = self.repository.add(
-            Proposal(
-                **body.model_dump(exclude={"starts_at", "ends_at"}),
-                starts_at=starts_at,
-                ends_at=ends_at,
-                trip_id=trip_id,
-                author_id=user_id,
-                status="PENDING",
-            )
+
+    def _pending_proposal(
+        self, trip: Trip, body: CreateProposalRequest, user_id: int, now: datetime
+    ) -> Proposal:
+        self.validate_proposal_schedule(trip, body, now)
+        return Proposal(
+            **body.model_dump(exclude={"starts_at", "ends_at"}),
+            starts_at=body.starts_at.astimezone(UTC),
+            ends_at=body.ends_at.astimezone(UTC),
+            trip_id=trip.trip_id,
+            author_id=user_id,
+            status="PENDING",
         )
-        return ProposalResponse.model_validate(proposal)
 
     @transaction
     def list_proposals(self, trip_id: int, user_id: int):

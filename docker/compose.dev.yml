@@ -17,6 +17,9 @@ services:
       JWT_COOKIE_NAME: ${JWT_COOKIE_NAME:-access_token}
       JWT_REFRESH_COOKIE_NAME: ${JWT_REFRESH_COOKIE_NAME:-refresh_token}
       JWT_COOKIE_SECURE: ${JWT_COOKIE_SECURE:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-30}
       CORS_ORIGINS: '["http://localhost:5173"]'
     command: ['sleep', 'infinity']
     ports:

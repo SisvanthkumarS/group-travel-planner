@@ -174,6 +174,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - Trip Management
+      summary: Update Trip
+      description: Update supplied trip fields as Organizer; dates must remain valid
+        together.
+      operationId: update_trip_api_v1_trips__trip_id__patch
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          exclusiveMinimum: 0
+          description: Trip ID
+          title: Trip Id
+        description: Trip ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTripRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Organizer required.
+        '404':
+          description: Trip not found.
+        '422':
+          description: Invalid update or start_date later than end_date.
     delete:
       tags:
       - Trip Management
@@ -333,7 +371,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateProposalRequest'
+              $ref: '#/components/schemas/CreateProposalRequest-Input'
       responses:
         '201':
           description: Successful Response
@@ -713,8 +751,566 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/trips/{trip_id}/chats:
+    post:
+      tags:
+      - AI Chat
+      summary: Create Chat
+      description: Create a private chat in a trip the current user belongs to.
+      operationId: create_chat_api_v1_trips__trip_id__chats_post
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Trip Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiChatCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiChatSessionResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Trip membership or chat ownership required.
+        '404':
+          description: Trip, chat, or draft not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - AI Chat
+      summary: List Chats
+      description: List the current user's chats in the trip, most recently updated
+        first.
+      operationId: list_chats_api_v1_trips__trip_id__chats_get
+      parameters:
+      - name: trip_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Trip Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AiChatSessionResponse'
+                title: Response List Chats Api V1 Trips  Trip Id  Chats Get
+        '401':
+          description: Authentication required.
+        '403':
+          description: Trip membership or chat ownership required.
+        '404':
+          description: Trip, chat, or draft not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/chats/{chat_id}/context:
+    get:
+      tags:
+      - AI Chat
+      summary: Get Chat Context
+      description: Read the current trip and active itinerary used as AI chat context.
+      operationId: get_chat_context_api_v1_chats__chat_id__context_get
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Chat Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiChatContextResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Trip membership or chat ownership required.
+        '404':
+          description: Trip, chat, or draft not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/chats/{chat_id}/messages:
+    get:
+      tags:
+      - AI Chat
+      summary: List Messages
+      description: Read messages and their drafts, newest first, with an exclusive
+        before_id cursor.
+      operationId: list_messages_api_v1_chats__chat_id__messages_get
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Chat Id
+      - name: before_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 9223372036854775807
+            exclusiveMinimum: 0
+          - type: 'null'
+          title: Before Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 30
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiChatMessagePage'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Trip membership or chat ownership required.
+        '404':
+          description: Trip, chat, or draft not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - AI Chat
+      summary: Send Message
+      description: Send a message and receive an AI reply that can contain a draft.
+      operationId: send_message_api_v1_chats__chat_id__messages_post
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Chat Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiChatSendMessageRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiChatSendMessageResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Trip membership or chat ownership required.
+        '404':
+          description: Trip, chat, or draft not found.
+        '409':
+          description: Generation conflict or the trip proposal limit is reached.
+        '502':
+          description: The AI provider failed or returned an invalid reply.
+        '503':
+          description: No AI provider is configured.
+        '504':
+          description: The AI provider timed out.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/chats/{chat_id}/drafts/{draft_id}:
+    patch:
+      tags:
+      - AI Chat
+      summary: Decide Draft
+      description: Accept or reject a draft. Accepted proposals enter the existing
+        PENDING workflow.
+      operationId: decide_draft_api_v1_chats__chat_id__drafts__draft_id__patch
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Chat Id
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Draft Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiChatDraftDecisionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiChatDraftResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Trip membership or chat ownership required.
+        '404':
+          description: Trip, chat, or draft not found.
+        '409':
+          description: Draft decision conflicts or the trip proposal limit is reached.
+        '422':
+          description: Invalid decision or draft proposals.
+  /api/v1/chats/{chat_id}:
+    delete:
+      tags:
+      - AI Chat
+      summary: Delete Chat
+      description: Delete a chat and its drafts while preserving submitted proposals.
+      operationId: delete_chat_api_v1_chats__chat_id__delete
+      parameters:
+      - name: chat_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          maximum: 9223372036854775807
+          exclusiveMinimum: 0
+          title: Chat Id
+      responses:
+        '204':
+          description: Successful Response
+        '401':
+          description: Authentication required.
+        '403':
+          description: Trip membership or chat ownership required.
+        '404':
+          description: Trip, chat, or draft not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    AiChatContextResponse:
+      properties:
+        current_time:
+          type: string
+          format: date-time
+          title: Current Time
+        name:
+          type: string
+          title: Name
+        destination:
+          type: string
+          title: Destination
+        start_date:
+          type: string
+          format: date
+          title: Start Date
+        end_date:
+          type: string
+          format: date
+          title: End Date
+        timezone:
+          type: string
+          title: Timezone
+        itinerary:
+          items:
+            $ref: '#/components/schemas/AiChatItineraryActivity'
+          type: array
+          title: Itinerary
+      type: object
+      required:
+      - current_time
+      - name
+      - destination
+      - start_date
+      - end_date
+      - timezone
+      - itinerary
+      title: AiChatContextResponse
+    AiChatCreateRequest:
+      properties:
+        title:
+          type: string
+          maxLength: 120
+          minLength: 1
+          title: Title
+          default: New chat
+      additionalProperties: false
+      type: object
+      title: AiChatCreateRequest
+    AiChatDraftDecisionRequest:
+      properties:
+        decision:
+          type: string
+          enum:
+          - ACCEPT
+          - REJECT
+          title: Decision
+      additionalProperties: false
+      type: object
+      required:
+      - decision
+      title: AiChatDraftDecisionRequest
+    AiChatDraftResponse:
+      properties:
+        kind:
+          type: string
+          enum:
+          - PROPOSAL
+          - ITINERARY
+          title: Kind
+        proposals:
+          items:
+            $ref: '#/components/schemas/CreateProposalRequest-Output'
+          type: array
+          maxItems: 100
+          minItems: 1
+          title: Proposals
+        draft_id:
+          type: integer
+          title: Draft Id
+        message_id:
+          type: integer
+          title: Message Id
+        status:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - REJECTED
+          title: Status
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        decided_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Decided At
+        proposal_ids:
+          items:
+            type: integer
+          type: array
+          title: Proposal Ids
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - proposals
+      - draft_id
+      - message_id
+      - status
+      - created_at
+      - decided_at
+      - proposal_ids
+      title: AiChatDraftResponse
+    AiChatItineraryActivity:
+      properties:
+        title:
+          type: string
+          title: Title
+        description:
+          type: string
+          title: Description
+        location:
+          type: string
+          title: Location
+        estimated_cost:
+          type: string
+          title: Estimated Cost
+        starts_at:
+          type: string
+          format: date-time
+          title: Starts At
+        ends_at:
+          type: string
+          format: date-time
+          title: Ends At
+      type: object
+      required:
+      - title
+      - description
+      - location
+      - estimated_cost
+      - starts_at
+      - ends_at
+      title: AiChatItineraryActivity
+    AiChatMessagePage:
+      properties:
+        messages:
+          items:
+            $ref: '#/components/schemas/AiChatMessageResponse'
+          type: array
+          title: Messages
+        next_before_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Next Before Id
+      type: object
+      required:
+      - messages
+      - next_before_id
+      title: AiChatMessagePage
+    AiChatMessageResponse:
+      properties:
+        message_id:
+          type: integer
+          title: Message Id
+        chat_id:
+          type: integer
+          title: Chat Id
+        role:
+          type: string
+          enum:
+          - USER
+          - ASSISTANT
+          title: Role
+        content:
+          type: string
+          title: Content
+        status:
+          type: string
+          enum:
+          - PENDING
+          - GENERATING
+          - COMPLETED
+          - FAILED
+          - CANCELLED
+          title: Status
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        draft:
+          anyOf:
+          - $ref: '#/components/schemas/AiChatDraftResponse'
+          - type: 'null'
+      type: object
+      required:
+      - message_id
+      - chat_id
+      - role
+      - content
+      - status
+      - created_at
+      title: AiChatMessageResponse
+    AiChatSendMessageRequest:
+      properties:
+        content:
+          type: string
+          maxLength: 4000
+          minLength: 1
+          title: Content
+      additionalProperties: false
+      type: object
+      required:
+      - content
+      title: AiChatSendMessageRequest
+    AiChatSendMessageResponse:
+      properties:
+        user_message:
+          $ref: '#/components/schemas/AiChatMessageResponse'
+        assistant_message:
+          $ref: '#/components/schemas/AiChatMessageResponse'
+      type: object
+      required:
+      - user_message
+      - assistant_message
+      title: AiChatSendMessageResponse
+    AiChatSessionResponse:
+      properties:
+        chat_id:
+          type: integer
+          title: Chat Id
+        trip_id:
+          type: integer
+          title: Trip Id
+        user_id:
+          type: integer
+          title: User Id
+        title:
+          type: string
+          title: Title
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - chat_id
+      - trip_id
+      - user_id
+      - title
+      - created_at
+      - updated_at
+      title: AiChatSessionResponse
     CreateInvitationRequest:
       properties:
         email:
@@ -732,7 +1328,7 @@ components:
           title: User Name
       type: object
       title: CreateInvitationRequest
-    CreateProposalRequest:
+    CreateProposalRequest-Input:
       properties:
         title:
           type: string
@@ -747,6 +1343,40 @@ components:
           - type: number
             minimum: 0.0
           - type: string
+          title: Estimated Cost
+        location:
+          type: string
+          minLength: 1
+          title: Location
+        starts_at:
+          type: string
+          format: date-time
+          title: Starts At
+        ends_at:
+          type: string
+          format: date-time
+          title: Ends At
+      type: object
+      required:
+      - title
+      - description
+      - estimated_cost
+      - location
+      - starts_at
+      - ends_at
+      title: CreateProposalRequest
+    CreateProposalRequest-Output:
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: Title
+        description:
+          type: string
+          minLength: 1
+          title: Description
+        estimated_cost:
+          type: string
           title: Estimated Cost
         location:
           type: string
@@ -1281,6 +1911,43 @@ components:
       - timezone
       - organizer_id
       title: TripResponse
+    UpdateTripRequest:
+      properties:
+        name:
+          anyOf:
+          - type: string
+            minLength: 1
+          - type: 'null'
+          title: Name
+        destination:
+          anyOf:
+          - type: string
+            minLength: 1
+          - type: 'null'
+          title: Destination
+        start_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Start Date
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+        timezone:
+          anyOf:
+          - type: string
+            minLength: 1
+          - type: 'null'
+          title: Timezone
+          description: IANA timezone used for the trip's calendar dates, e.g. America/New_York.
+      additionalProperties: false
+      type: object
+      title: UpdateTripRequest
+      description: Partial trip-update request VO; fields match CreateTripRequest.
     UserResponse:
       properties:
         user_name:

@@ -135,6 +135,9 @@ or CORS failures. Do not call `response.json()` on a successful `204` response.
 | 9   | GET    | `/invitations`                 | Logged-in user; received invitations only | `200`, invitation array          |
 | 10  | PATCH  | `/invitations`                 | Recipient of the invitation               | `200`, updated invitation        |
 
+Additional Trip endpoint: **PATCH `/trips/{trip_id}`**, Organizer only; returns
+`200` with the updated trip. See section 5.5.
+
 Additional endpoint: **POST `/auth/refresh`**, authenticated by the refresh cookie;
 returns `200` with the user object and renewed cookies, or `401` / `503`.
 
@@ -451,6 +454,76 @@ of the same trip returns 404.
 | 403    | `Only the Organizer can delete this trip.` |
 | 404    | `Trip not found.`                          |
 | 422    | Invalid path parameter                     |
+
+### 5.5 Update trip details (US-18)
+
+**`PATCH /trips/{trip_id}`** · Organizer only · Success: **200 OK**
+
+**Path input:** Positive integer `trip_id`, for example `/trips/12`.
+Send the login cookies and `X-CSRF-Protection: 1`.
+
+| Field         | JSON type | Required | Rules                      |
+| ------------- | --------- | -------- | -------------------------- |
+| `name`        | string    | No       | Trimmed; must not be blank |
+| `destination` | string    | No       | Trimmed; must not be blank |
+| `start_date`  | string    | No       | Valid `YYYY-MM-DD` date    |
+| `end_date`    | string    | No       | Valid `YYYY-MM-DD` date    |
+
+| `timezone` | string | No | Valid IANA timezone, e.g. `Asia/Shanghai`; same validator as create |
+
+Supply at least one field. Omitted values are preserved; explicit nulls are
+rejected. Only these five fields may be updated. `organizer_id`,
+`trip_id`, and member changes are not accepted in this request.
+
+Dates are validated after combining the patch with the saved trip, using the same
+validation as create: effective start_date must be on or before effective end_date.
+This also applies when only one date is provided; equal dates are allowed. An
+invalid patch leaves all existing details unchanged.
+
+```json
+{
+  "name": "Updated group trip",
+  "destination": "Boston",
+  "start_date": "2027-01-05",
+  "end_date": "2027-01-07",
+  "timezone": "Asia/Shanghai"
+}
+```
+
+Success example:
+
+```json
+{
+  "trip_id": 12,
+  "name": "Updated group trip",
+  "destination": "Boston",
+  "start_date": "2027-01-05",
+  "end_date": "2027-01-07",
+  "timezone": "Asia/Shanghai",
+  "organizer_id": 7
+}
+```
+
+A name-only update is also valid: `{"name":"Updated group trip"}`. The response
+contains the full trip object, without a members array. Group Members see the
+updated data on subsequent GET `/trips` and GET `/trips/{trip_id}` requests; refresh
+those queries after a successful update. No live push notification is emitted.
+Timezone can be updated on its own, for example `{"timezone":"Asia/Shanghai"}`.
+Changing it does not reschedule stored activity/poll/itinerary timestamps.
+
+| Status | Detail / cause                                                                                   |
+| ------ | ------------------------------------------------------------------------------------------------ |
+| 401    | Authentication required or expired credentials                                                   |
+| 403    | `Only the Organizer can update this trip.`; a Group Member cannot update it                      |
+| 403    | `CSRF validation failed.` if the CSRF header/origin is invalid                                   |
+| 404    | `Trip not found.`                                                                                |
+| 422    | Invalid input, empty body, null field, unsupported field, or effective start_date after end_date |
+
+US-18 backend acceptance coverage:
+
+1. Organizer updates persist and appear in Group Members' list/detail responses.
+2. Invalid date ranges return 422 and leave all existing details unchanged.
+3. A Group Member who is not the Organizer receives 403 and cannot modify details.
 
 ## 6. Invitations
 

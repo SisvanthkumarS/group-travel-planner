@@ -1,3 +1,4 @@
+from backend.app.models.AiChat import AiChatDraft, AiChatDraftProposal, AiChatMessage, AiChatSession
 from backend.app.models.base import Base
 from backend.app.models.invitation import Invitation
 from backend.app.models.trip import Trip
@@ -6,6 +7,10 @@ from backend.app.models.user import User
 
 __all__ = [
     "Base",
+    "AiChatSession",
+    "AiChatMessage",
+    "AiChatDraft",
+    "AiChatDraftProposal",
     "Invitation",
     "Trip",
     "TripMember",
