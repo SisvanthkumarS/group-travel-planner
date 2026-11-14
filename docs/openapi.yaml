@@ -713,6 +713,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/notifications/test-email:
+    post:
+      tags:
+      - Notifications
+      summary: Send Test Email
+      description: 'Email the signed-in user''s stored address. No request body is
+        needed.
+
+
+        Enable EMAIL_TEST_ENABLED temporarily to use this diagnostic event.
+
+        Success means provider acceptance, not confirmed inbox delivery.'
+      operationId: send_test_email_api_v1_notifications_test_email_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestEmailResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: CSRF validation failed.
+        '404':
+          description: Test email event is disabled.
+        '502':
+          description: Email submission failed; delivery may be uncertain after a
+            timeout.
+        '503':
+          description: Email sending is disabled.
 components:
   schemas:
     CreateInvitationRequest:
@@ -1180,6 +1211,20 @@ components:
       - invitation_id
       - decision
       title: RespondInvitationRequest
+    TestEmailResponse:
+      properties:
+        status:
+          type: string
+          const: accepted
+          title: Status
+          default: accepted
+        message_id:
+          type: string
+          title: Message Id
+      type: object
+      required:
+      - message_id
+      title: TestEmailResponse
     TripDetailResponse:
       properties:
         trip_id:

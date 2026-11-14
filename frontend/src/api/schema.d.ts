@@ -339,6 +339,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/test-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Test Email
+         * @description Email the signed-in user's stored address. No request body is needed.
+         *
+         *     Enable EMAIL_TEST_ENABLED temporarily to use this diagnostic event.
+         *     Success means provider acceptance, not confirmed inbox delivery.
+         */
+        post: operations["send_test_email_api_v1_notifications_test_email_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -623,6 +646,17 @@ export interface components {
              * @enum {string}
              */
             decision: "ACCEPT" | "DECLINE";
+        };
+        /** TestEmailResponse */
+        TestEmailResponse: {
+            /**
+             * Status
+             * @default accepted
+             * @constant
+             */
+            status: "accepted";
+            /** Message Id */
+            message_id: string;
         };
         /** TripDetailResponse */
         TripDetailResponse: {
@@ -1682,6 +1716,61 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    send_test_email_api_v1_notifications_test_email_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestEmailResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CSRF validation failed. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Test email event is disabled. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Email submission failed; delivery may be uncertain after a timeout. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Email sending is disabled. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

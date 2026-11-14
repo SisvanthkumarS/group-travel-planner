@@ -11,6 +11,8 @@ testing the complete flow.
 The FastAPI backend supports:
 
 - Registration, email/username login, and logout.
+- SMTP email sending (including Hostinger) and an opt-in test notification to the
+  signed-in user.
 - Trip creation with an organizer membership, member-only trip details, listing,
   and organizer-only deletion.
 - Invitations to registered users, acceptance/decline, and an eight-participant
@@ -32,10 +34,8 @@ implementation details are in [docs/architecture.md](docs/architecture.md).
 
 ## Current integration gaps
 
-- The frontend trip form and generated frontend types still need the required
-  `timezone` field. Until updated, submitting that form returns HTTP 422.
-- Frontend activity inputs and display currently use the browser's timezone;
-  backend date validation uses the trip's timezone. These can differ.
+- The trip form defaults to the browser's timezone; choose the destination's
+  timezone when it differs.
 - `GET /auth/me` is not implemented. Session restoration tries it, then falls
   back to cached user display data after verifying the cookie with `GET /trips`.
 - Invitation responses contain IDs, without the trip name or organizer name.
@@ -213,6 +213,14 @@ authenticated features and the enabled deadline scheduler require a migrated
 PostgreSQL database. An error such as `relation "proposals" does not exist`
 means migrations must be applied to the database in `DATABASE_URL`.
 
+## Email notifications
+
+Email sending is disabled by default. The first event,
+`POST /api/v1/notifications/test-email`, sends a test notification to the signed-in
+user when `EMAIL_ENABLED` and `EMAIL_TEST_ENABLED` are enabled. See the
+[email setup guide](docs/email-notifications.md) for Hostinger SMTP configuration,
+a PowerShell test request, and local testing with Mailpit.
+
 ## Trip timezones and poll deadlines
 
 `POST /api/v1/trips` requires an IANA timezone alongside its calendar dates:
@@ -279,11 +287,12 @@ Review generated migrations before applying them. In Compose, run
 - Generated schema: <http://localhost:8000/api/v1/openapi.json>
 - Checked-in schema: [docs/openapi.yaml](docs/openapi.yaml)
 
-The router is mounted under `/api/v1` and exposes 18 operations:
+The router is mounted under `/api/v1` and exposes 20 operations:
 
 | Area             | Operations (paths relative to `/api/v1`)                                                                      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------- |
-| Authentication   | `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`                                                |
+| Authentication   | `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/refresh`                          |
+| Notifications    | `POST /notifications/test-email` (opt-in diagnostic event)                                                    |
 | Trips            | `POST /trips`, `GET /trips`, `GET /trips/{trip_id}`, `DELETE /trips/{trip_id}`                                |
 | Invitations      | `POST /trips/{trip_id}/invitations`, `GET /invitations`, `PATCH /invitations`                                 |
 | Proposals        | `POST /trips/{trip_id}/proposals`, `GET /trips/{trip_id}/proposals`, `POST /proposals/{proposal_id}/withdraw` |

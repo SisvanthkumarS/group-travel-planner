@@ -5,11 +5,22 @@ services:
     image: hubertchang/course:backend-latest
     working_dir: /app
     environment:
+      APP_ENV: production
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
       JWT_SECRET: ${JWT_SECRET}
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      EMAIL_TEST_ENABLED: ${EMAIL_TEST_ENABLED:-false}
+      EMAIL_TIMEOUT_SECONDS: ${EMAIL_TIMEOUT_SECONDS:-10}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-notifications@example.com}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Group Travel Planner}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_ENCRYPTION: ${SMTP_ENCRYPTION:-starttls}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       CORS_ORIGINS: '["http://localhost:3000"]'
     ports:
       - '8000:8000'

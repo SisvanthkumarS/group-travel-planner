@@ -269,8 +269,8 @@ describe('create trip validation (US-04)', () => {
       /before/,
     );
   });
-  it('requires a time zone', () => {
-    expect(validateTrip({ ...ok, timezone: '' }).timezone).toMatch(/time zone/);
+  it.each(['', ' '])('requires a time zone (input: %j)', (timezone) => {
+    expect(validateTrip({ ...ok, timezone }).timezone).toMatch(/time zone/);
   });
 });
 

@@ -1,7 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import EmailStr, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +30,31 @@ class Settings(BaseSettings):
     poll_scheduler_enabled: bool = True
     poll_scheduler_interval_seconds: float = Field(default=5, gt=0)
     cors_origins: list[str] = ["http://localhost:5173"]
+    email_enabled: bool = False
+    email_test_enabled: bool = False
+    email_timeout_seconds: float = Field(default=10, gt=0, le=60)
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_encryption: Literal["starttls", "ssl", "none"] = "starttls"
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    email_from_address: EmailStr | None = None
+    email_from_name: str = Field(default="Group Travel Planner", pattern=r"^[^\r\n]*$")
+
+    @model_validator(mode="after")
+    def validate_email_settings(self):
+        if not self.email_enabled:
+            return self
+        if self.email_from_address is None:
+            raise ValueError("EMAIL_ENABLED requires EMAIL_FROM_ADDRESS.")
+        if not self.smtp_host.strip():
+            raise ValueError("SMTP email requires SMTP_HOST.")
+        if bool(self.smtp_username) != bool(self.smtp_password.get_secret_value()):
+            raise ValueError("Set both SMTP_USERNAME and SMTP_PASSWORD, or neither.")
+        if self.smtp_encryption == "none":
+            if self.app_env not in {"development", "test"} or self.smtp_username:
+                raise ValueError("Unencrypted SMTP is only for local testing without credentials.")
+        return self
 
     @model_validator(mode="after")
     def validate_cookie_names(self):
