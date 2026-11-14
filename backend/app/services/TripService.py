@@ -10,6 +10,7 @@ from backend.app.schemas.trip import (
     TripMemberResponse,
     TripResponse,
 )
+from backend.app.services.NotificationPublisher import NotificationPublisher
 
 
 class TripService:
@@ -18,6 +19,7 @@ class TripService:
     def __init__(self, session: Session):
         self.session = session
         self.repository = TripRepository(session)
+        self.notifications = NotificationPublisher(session)
         # The JWT filter's user lookup already opens a transaction in this Session.
         # For writes, commit once on success and rollback on failure. Do not start
         # another session.begin() around an already-active transaction.
@@ -81,7 +83,7 @@ class TripService:
     def delete_trip(self, trip_id: int, current_user_id: int) -> None:
         # Existing foreign-key cascades delete this trip's members and invitations.
         try:
-            trip = self.repository.find_by_id(trip_id)
+            trip = self.repository.find_by_id(trip_id, lock=True)
             if trip is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found.")
             if trip.organizer_id != current_user_id:
@@ -89,6 +91,15 @@ class TripService:
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Only the Organizer can delete this trip.",
                 )
+            self.notifications.publish(
+                event_key=f"trip:{trip_id}:deleted",
+                event_type="TRIP_DELETED",
+                recipients=self.notifications.member_ids(trip_id),
+                actor_id=current_user_id,
+                trip=trip,
+                title="Trip deleted",
+                message=f"{trip.name} was deleted by its organizer.",
+            )
             self.repository.delete(trip)
             self.session.commit()
         except Exception:

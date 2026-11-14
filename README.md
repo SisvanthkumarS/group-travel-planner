@@ -13,6 +13,8 @@ The FastAPI backend supports:
 - Registration, email/username login, and logout.
 - SMTP email sending (including Hostinger) and an opt-in test notification to the
   signed-in user.
+- Persistent in-app notifications, independent in-app/email preferences, and a
+  durable email queue for invitation, voting, itinerary, and trip updates.
 - Trip creation with an organizer membership, member-only trip details, listing,
   and organizer-only deletion.
 - Invitations to registered users, acceptance/decline, and an eight-participant
@@ -215,11 +217,17 @@ means migrations must be applied to the database in `DATABASE_URL`.
 
 ## Email notifications
 
-Email sending is disabled by default. The first event,
-`POST /api/v1/notifications/test-email`, sends a test notification to the signed-in
-user when `EMAIL_ENABLED` and `EMAIL_TEST_ENABLED` are enabled. See the
-[email setup guide](docs/email-notifications.md) for Hostinger SMTP configuration,
-a PowerShell test request, and local testing with Mailpit.
+Apply migration `0008` before running the updated backend. In-app notifications
+default to on; each user must opt in to automatic email through notification
+preferences. The operator must also enable `EMAIL_ENABLED` and configure SMTP.
+Business events persist notifications and queue email in the same transaction.
+An internal worker handles retries and checks opt-outs before sending.
+
+See the [notification API guide](docs/notifications.md), the short
+[frontend handoff](docs/frontend-notifications.md), and the
+[Hostinger/test email setup](docs/email-notifications.md). Notification UI is left
+for the frontend implementation. The explicit `POST /notifications/test-email`
+diagnostic requires `EMAIL_TEST_ENABLED` and bypasses channel preferences.
 
 ## Trip timezones and poll deadlines
 
@@ -266,6 +274,8 @@ Revision `0007` adds trip timezones and assigns `America/New_York` to existing
 trips, as agreed for legacy data. New API requests must provide a valid timezone;
 legacy direct database inserts default to UTC. Review existing trips in other
 timezones before relying on their local-date validation.
+Revision `0008` adds notification history, independent per-user channel preferences
+(in-app on, email off), and a durable SMTP outbox with retries and recoverable claims.
 Register future models in `backend/app/models/__init__.py` so Alembic sees their metadata.
 Use `travel_test` for development; keep the production database separate.
 When reusing an existing Docker volume, create `travel_test` before switching
@@ -287,17 +297,17 @@ Review generated migrations before applying them. In Compose, run
 - Generated schema: <http://localhost:8000/api/v1/openapi.json>
 - Checked-in schema: [docs/openapi.yaml](docs/openapi.yaml)
 
-The router is mounted under `/api/v1` and exposes 20 operations:
+The router is mounted under `/api/v1` and exposes 26 operations:
 
-| Area             | Operations (paths relative to `/api/v1`)                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------------------- |
-| Authentication   | `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/refresh`                          |
-| Notifications    | `POST /notifications/test-email` (opt-in diagnostic event)                                                    |
-| Trips            | `POST /trips`, `GET /trips`, `GET /trips/{trip_id}`, `DELETE /trips/{trip_id}`                                |
-| Invitations      | `POST /trips/{trip_id}/invitations`, `GET /invitations`, `PATCH /invitations`                                 |
-| Proposals        | `POST /trips/{trip_id}/proposals`, `GET /trips/{trip_id}/proposals`, `POST /proposals/{proposal_id}/withdraw` |
-| Polls and voting | `POST /proposals/{proposal_id}/poll`, `PUT /polls/{poll_id}/vote`, `POST /polls/{poll_id}/resolve`            |
-| Itinerary        | `GET /trips/{trip_id}/itinerary`, `DELETE /trips/{trip_id}/itinerary/{item_id}`                               |
+| Area             | Operations (paths relative to `/api/v1`)                                                                                                                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authentication   | `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/refresh`                                                                                                                           |
+| Notifications    | `GET /notifications`, `GET /notifications/unread-count`, `GET/PUT /notifications/preferences`, `PATCH /notifications/{notification_id}/read`, `POST /notifications/read-all`, `POST /notifications/test-email` |
+| Trips            | `POST /trips`, `GET /trips`, `GET /trips/{trip_id}`, `DELETE /trips/{trip_id}`                                                                                                                                 |
+| Invitations      | `POST /trips/{trip_id}/invitations`, `GET /invitations`, `PATCH /invitations`                                                                                                                                  |
+| Proposals        | `POST /trips/{trip_id}/proposals`, `GET /trips/{trip_id}/proposals`, `POST /proposals/{proposal_id}/withdraw`                                                                                                  |
+| Polls and voting | `POST /proposals/{proposal_id}/poll`, `PUT /polls/{poll_id}/vote`, `POST /polls/{poll_id}/resolve`                                                                                                             |
+| Itinerary        | `GET /trips/{trip_id}/itinerary`, `DELETE /trips/{trip_id}/itinerary/{item_id}`                                                                                                                                |
 
 Run
 `pnpm run openapi` after changing API contracts, using the default `APP_NAME` when
@@ -347,9 +357,8 @@ Python formatting failures can be fixed with `pnpm run format`, then restaged.
 CI checks lint, tests, OpenAPI
 consistency, the frontend build, PostgreSQL constraints, model/migration consistency,
 and migration upgrade/downgrade on PostgreSQL.
-The current CI database step names schema, authentication, trip, and invitation
-integration modules explicitly; run the full backend suite with `TEST_DATABASE_URL`
-to include the activity integration tests too.
+CI runs the full backend suite against PostgreSQL and Redis, including activity
+and notification integration tests.
 
 ## Layout
 

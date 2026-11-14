@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     email_enabled: bool = False
     email_test_enabled: bool = False
     email_timeout_seconds: float = Field(default=10, gt=0, le=60)
+    notification_email_worker_enabled: bool = True
+    notification_email_interval_seconds: float = Field(default=5, gt=0)
+    notification_email_batch_size: int = Field(default=20, ge=1, le=100)
+    notification_email_max_attempts: int = Field(default=5, ge=1, le=20)
+    notification_email_retry_seconds: float = Field(default=60, gt=0, le=3600)
+    notification_email_lease_seconds: float = Field(default=600, ge=120)
     smtp_host: str = ""
     smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_encryption: Literal["starttls", "ssl", "none"] = "starttls"

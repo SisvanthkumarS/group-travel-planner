@@ -713,6 +713,198 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/notifications:
+    get:
+      tags:
+      - Notifications
+      summary: List Notifications
+      description: 'List only your in-app history, newest ID first. Reads do not mark
+        items read.
+
+
+        Pass next_before_id as before_id for the next page. Existing history remains
+
+        available after opting out. Email-only records are never exposed here.'
+      operationId: list_notifications_api_v1_notifications_get
+      parameters:
+      - name: unread_only
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Unread Only
+      - name: before_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            exclusiveMinimum: 0
+          - type: 'null'
+          title: Before Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '401':
+          description: Authentication required.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/notifications/unread-count:
+    get:
+      tags:
+      - Notifications
+      summary: Unread Count
+      description: Count all your unread in-app notifications, independently of pagination.
+      operationId: unread_count_api_v1_notifications_unread_count_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnreadCountResponse'
+        '401':
+          description: Authentication required.
+  /api/v1/notifications/preferences:
+    get:
+      tags:
+      - Notifications
+      summary: Get Preferences
+      description: 'Return your saved preferences. Defaults: in-app on, email off.'
+      operationId: get_preferences_api_v1_notifications_preferences_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+        '401':
+          description: Authentication required.
+    put:
+      tags:
+      - Notifications
+      summary: Update Preferences
+      description: 'Replace both preferences. Disabling email also cancels pending
+        deliveries.
+
+
+        Changes apply to future events; enabling a channel never backfills past events.
+
+        In-app history is retained. An email already submitted cannot be recalled.
+
+        SMTP must also be enabled by the server operator for email delivery.'
+      operationId: update_preferences_api_v1_notifications_preferences_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferences'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+        '401':
+          description: Authentication required.
+        '403':
+          description: CSRF validation failed.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/notifications/read-all:
+    post:
+      tags:
+      - Notifications
+      summary: Mark All Read
+      description: 'Mark your unread items read, optionally only through the newest
+        loaded ID.
+
+
+        Send {} to mark all currently visible items. Repeating the request is safe.'
+      operationId: mark_all_read_api_v1_notifications_read_all_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkAllReadRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkAllReadResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: CSRF validation failed.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/notifications/{notification_id}/read:
+    patch:
+      tags:
+      - Notifications
+      summary: Mark Read
+      description: Mark one item read. Repeating the request preserves its original
+        read time.
+      operationId: mark_read_api_v1_notifications__notification_id__read_patch
+      parameters:
+      - name: notification_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          exclusiveMinimum: 0
+          title: Notification Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: CSRF validation failed.
+        '404':
+          description: Notification absent or not in your in-app inbox.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/notifications/test-email:
     post:
       tags:
@@ -976,6 +1168,135 @@ components:
       required:
       - password
       title: LoginRequest
+    MarkAllReadRequest:
+      properties:
+        through_id:
+          anyOf:
+          - type: integer
+            exclusiveMinimum: 0.0
+          - type: 'null'
+          title: Through Id
+          description: Optional newest loaded ID; newer notifications remain unread.
+            Omit to mark all currently visible rows.
+      additionalProperties: false
+      type: object
+      title: MarkAllReadRequest
+    MarkAllReadResponse:
+      properties:
+        updated_count:
+          type: integer
+          title: Updated Count
+      type: object
+      required:
+      - updated_count
+      title: MarkAllReadResponse
+    NotificationPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/NotificationResponse'
+          type: array
+          title: Items
+        next_before_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Next Before Id
+      type: object
+      required:
+      - items
+      - next_before_id
+      title: NotificationPage
+    NotificationPreferences:
+      properties:
+        in_app_enabled:
+          type: boolean
+          title: In App Enabled
+          description: Create future in-app notifications. Initially true.
+        email_enabled:
+          type: boolean
+          title: Email Enabled
+          description: Queue future notification emails. Initially false.
+      additionalProperties: false
+      type: object
+      required:
+      - in_app_enabled
+      - email_enabled
+      title: NotificationPreferences
+    NotificationResponse:
+      properties:
+        notification_id:
+          type: integer
+          title: Notification Id
+        event_type:
+          type: string
+          enum:
+          - INVITATION_RECEIVED
+          - INVITATION_ACCEPTED
+          - INVITATION_DECLINED
+          - PROPOSAL_CREATED
+          - POLL_OPENED
+          - POLL_TIED
+          - ACTIVITY_APPROVED
+          - ACTIVITY_REJECTED
+          - ACTIVITY_CANCELLED
+          - TRIP_DELETED
+          title: Event Type
+        title:
+          type: string
+          title: Title
+        message:
+          type: string
+          title: Message
+        trip_name:
+          type: string
+          title: Trip Name
+        trip_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Trip Id
+        proposal_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Proposal Id
+        invitation_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Invitation Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        read_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Read At
+        action_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Action Url
+          description: Relative app path; null when the trip was deleted. Use resource
+            IDs to focus a proposal/invitation.
+      type: object
+      required:
+      - notification_id
+      - event_type
+      - title
+      - message
+      - trip_name
+      - trip_id
+      - proposal_id
+      - invitation_id
+      - created_at
+      - read_at
+      - action_url
+      title: NotificationResponse
     OpenPollRequest:
       properties:
         deadline:
@@ -1326,6 +1647,15 @@ components:
       - timezone
       - organizer_id
       title: TripResponse
+    UnreadCountResponse:
+      properties:
+        unread_count:
+          type: integer
+          title: Unread Count
+      type: object
+      required:
+      - unread_count
+      title: UnreadCountResponse
     UserResponse:
       properties:
         user_name:

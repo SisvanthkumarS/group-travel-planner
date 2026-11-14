@@ -139,3 +139,20 @@ operation. Reads also use the trip lock to return consistent proposal/poll histo
 `docs/openapi.yaml` is generated from FastAPI and compared semantically in CI.
 Apply Alembic migrations before starting the API. The current Docker setup uses
 reload servers and is for development.
+
+Notification migration `0008` adds channel preferences to users and creates
+`notifications` and `notification_emails`. `NotificationPublisher` records events
+in the business transaction, suppresses self-notifications, applies current
+preferences, and deduplicates by recipient/event key. Email-only records are
+excluded from inbox APIs. Trip/resource deletion clears foreign keys while
+preserving notification text. `NotificationInboxService` owns inbox reads, read
+state, and preference updates; all queries are scoped to the current user.
+
+The email worker uses short database locks to claim jobs, then releases them
+before SMTP I/O. Lease expiration recovers interrupted workers; completion checks
+an ownership token. Opt-out cancels pending/claimed jobs, with a final cancellation
+check before sending. Failed SMTP attempts back off and eventually become FAILED.
+Global SMTP disable pauses delivery without affecting in-app notifications.
+SMTP acceptance and database commit cannot be atomic, so retry after a crash or
+ambiguous provider response may duplicate an email. See [notification contracts
+and operational details](notifications.md).

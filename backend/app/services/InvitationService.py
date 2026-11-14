@@ -14,6 +14,7 @@ from backend.app.schemas.invitation import (
     InvitationResponse,
     RespondInvitationRequest,
 )
+from backend.app.services.NotificationPublisher import NotificationPublisher
 
 
 def to_response(invitation: Invitation, trip: Trip, invited_by: User) -> InvitationResponse:
@@ -39,6 +40,7 @@ class InvitationService:
 
     def __init__(self, session: Session):
         self.session = session
+        self.notifications = NotificationPublisher(session)
         self.repository = InvitationRepository(session)
         self.trip_repository = TripRepository(session)
         self.user_repository = AuthRepository(session)
@@ -95,6 +97,16 @@ class InvitationService:
             saved_invitation = self.repository.add(invitation)
             organizer = self.repository.find_user(current_user_id)
             response = to_response(saved_invitation, trip, organizer)
+            self.notifications.publish(
+                event_key=f"invitation:{saved_invitation.invitation_id}:received",
+                event_type="INVITATION_RECEIVED",
+                recipients=[recipient.user_id],
+                actor_id=current_user_id,
+                trip=trip,
+                title="New trip invitation",
+                message=f"{organizer.user_name} invited you to {trip.name}.",
+                invitation_id=saved_invitation.invitation_id,
+            )
             self.session.commit()
             return response
         except IntegrityError as exc:
@@ -154,7 +166,21 @@ class InvitationService:
             invitation.responded_at = datetime.now(UTC)
             saved_invitation = self.repository.save_response(invitation)
             invited_by = self.repository.find_user(saved_invitation.invited_by_user_id)
+            respondent = self.repository.find_user(current_user_id)
             response = to_response(saved_invitation, trip, invited_by)
+            self.notifications.publish(
+                event_key=f"invitation:{saved_invitation.invitation_id}:response",
+                event_type=f"INVITATION_{saved_invitation.status}",
+                recipients=[saved_invitation.invited_by_user_id],
+                actor_id=current_user_id,
+                trip=trip,
+                title="Invitation response",
+                message=(
+                    f"{respondent.user_name} {saved_invitation.status.lower()} "
+                    f"the invitation to {trip.name}."
+                ),
+                invitation_id=saved_invitation.invitation_id,
+            )
             self.session.commit()
             return response
         except Exception:

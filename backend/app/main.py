@@ -9,6 +9,7 @@ from backend.app.core.auth_cookies import AuthenticationCookiesMiddleware
 from backend.app.core.config import get_settings
 from backend.app.core.csrf import CSRFMiddleware
 from backend.app.core.filter import require_authentication
+from backend.app.core.notification_worker import run_notification_worker
 from backend.app.core.poll_scheduler import run_poll_scheduler
 
 settings = get_settings()
@@ -17,17 +18,19 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     stop = asyncio.Event()
-    task = None
+    tasks = []
     if settings.poll_scheduler_enabled:
-        task = asyncio.create_task(
-            run_poll_scheduler(stop, settings.poll_scheduler_interval_seconds)
+        tasks.append(
+            asyncio.create_task(run_poll_scheduler(stop, settings.poll_scheduler_interval_seconds))
         )
+    if settings.email_enabled and settings.notification_email_worker_enabled:
+        tasks.append(asyncio.create_task(run_notification_worker(stop, settings)))
     try:
         yield
     finally:
         stop.set()
-        if task is not None:
-            await task
+        if tasks:
+            await asyncio.gather(*tasks)
 
 
 app = FastAPI(

@@ -19,6 +19,7 @@ from backend.app.schemas.activity import (
     VoteRequest,
     VoteResponse,
 )
+from backend.app.services.NotificationPublisher import NotificationPublisher
 
 
 def transaction(method):
@@ -39,6 +40,26 @@ class ActivityService:
     def __init__(self, session: Session):
         self.session = session
         self.repository = ActivityRepository(session)
+        self.notifications = NotificationPublisher(session)
+
+    def _notify_result(self, trip, proposal, *, actor_id=None):
+        tied = proposal.status == "TIED"
+        approved = proposal.status == "APPROVED"
+        self.notifications.publish(
+            event_key=f"proposal:{proposal.proposal_id}:{proposal.status}",
+            event_type="POLL_TIED" if tied else f"ACTIVITY_{proposal.status}",
+            recipients=[trip.organizer_id] if tied else self.repository.member_ids(trip.trip_id),
+            actor_id=actor_id,
+            trip=trip,
+            title="Poll needs your decision" if tied else f"Activity {proposal.status.lower()}",
+            message=(
+                f"The poll for {proposal.title} in {trip.name} is tied. Please decide the outcome."
+                if tied
+                else f"{proposal.title} in {trip.name} was {proposal.status.lower()}."
+                + (" It has been added to the itinerary." if approved else "")
+            ),
+            proposal_id=proposal.proposal_id,
+        )
 
     @staticmethod
     def _invalid(field, message):
@@ -160,6 +181,16 @@ class ActivityService:
                 status="PENDING",
             )
         )
+        self.notifications.publish(
+            event_key=f"proposal:{proposal.proposal_id}:created",
+            event_type="PROPOSAL_CREATED",
+            recipients=[trip.organizer_id],
+            actor_id=user_id,
+            trip=trip,
+            title="New activity proposal",
+            message=f"{proposal.title} was proposed for {trip.name}.",
+            proposal_id=proposal.proposal_id,
+        )
         return ProposalResponse.model_validate(proposal)
 
     @transaction
@@ -201,10 +232,22 @@ class ActivityService:
                 status="OPEN",
             )
         )
-        for user in self.repository.member_ids(proposal.trip_id):
+        voters = self.repository.member_ids(proposal.trip_id)
+        for user in voters:
             self.session.add(EligibleVoter(poll_id=poll.poll_id, user_id=user))
         proposal.status = "OPEN"
         self.session.flush()
+        trip = self.repository.trip(proposal.trip_id)
+        self.notifications.publish(
+            event_key=f"poll:{poll.poll_id}:opened",
+            event_type="POLL_OPENED",
+            recipients=voters,
+            actor_id=user_id,
+            trip=trip,
+            title="Voting is open",
+            message=f"Vote on {proposal.title} in {trip.name} before {poll.deadline.isoformat()}.",
+            proposal_id=proposal.proposal_id,
+        )
         return self._poll_responses([poll])[proposal_id]
 
     @transaction
@@ -251,6 +294,7 @@ class ActivityService:
         else:
             proposal.status = "REJECTED"
         self.session.flush()
+        self._notify_result(self.repository.trip(proposal.trip_id), proposal, actor_id=user_id)
         return self._responses([proposal])[0]
 
     @transaction
@@ -274,19 +318,31 @@ class ActivityService:
 
     @transaction
     def cancel(self, trip_id: int, item_id: int, user_id: int):
-        self._trip(trip_id, user_id, organizer=True)
+        trip = self._trip(trip_id, user_id, organizer=True)
         item = self.repository.item(trip_id, item_id)
         if item is None:
             raise HTTPException(404, "Itinerary item not found in this trip.")
         if item.status == "ACTIVE":
             item.status, item.canceled_at = "CANCELLED", datetime.now(UTC)
-            self.repository.proposal(item.proposal_id).status = "CANCELLED"
+            proposal = self.repository.proposal(item.proposal_id)
+            proposal.status = "CANCELLED"
             self.session.flush()
+            self.notifications.publish(
+                event_key=f"itinerary:{item_id}:cancelled",
+                event_type="ACTIVITY_CANCELLED",
+                recipients=self.repository.member_ids(trip_id),
+                actor_id=user_id,
+                trip=trip,
+                title="Itinerary activity canceled",
+                message=f"{proposal.title} was canceled in {trip.name}.",
+                proposal_id=proposal.proposal_id,
+            )
 
     @transaction
     def close_due_for_trip(self, trip_id: int):
         """Internal scheduler entry point; safe across processes and repeated scans."""
-        if self.repository.trip(trip_id, lock=True, skip_locked=True) is None:
+        trip = self.repository.trip(trip_id, lock=True, skip_locked=True)
+        if trip is None:
             return 0
         now = datetime.now(UTC)
         due = self.repository.due_polls(trip_id, now)
@@ -302,5 +358,6 @@ class ActivityService:
                 poll.outcome = proposal.status = "TIED"
             else:
                 poll.outcome = proposal.status = "REJECTED"
+            self._notify_result(trip, proposal)
         self.session.flush()
         return len(due)

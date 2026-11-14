@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, Identity, Index, Text, text
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Identity, Index, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.app.models.base import Base
@@ -12,6 +12,8 @@ class User(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     email: Mapped[str] = mapped_column(Text)
     password_hash: Mapped[str] = mapped_column(Text)
+    in_app_notifications_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    email_notifications_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )

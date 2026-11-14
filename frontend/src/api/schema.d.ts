@@ -339,6 +339,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Notifications
+         * @description List only your in-app history, newest ID first. Reads do not mark items read.
+         *
+         *     Pass next_before_id as before_id for the next page. Existing history remains
+         *     available after opting out. Email-only records are never exposed here.
+         */
+        get: operations["list_notifications_api_v1_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unread Count
+         * @description Count all your unread in-app notifications, independently of pagination.
+         */
+        get: operations["unread_count_api_v1_notifications_unread_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Preferences
+         * @description Return your saved preferences. Defaults: in-app on, email off.
+         */
+        get: operations["get_preferences_api_v1_notifications_preferences_get"];
+        /**
+         * Update Preferences
+         * @description Replace both preferences. Disabling email also cancels pending deliveries.
+         *
+         *     Changes apply to future events; enabling a channel never backfills past events.
+         *     In-app history is retained. An email already submitted cannot be recalled.
+         *     SMTP must also be enabled by the server operator for email delivery.
+         */
+        put: operations["update_preferences_api_v1_notifications_preferences_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark All Read
+         * @description Mark your unread items read, optionally only through the newest loaded ID.
+         *
+         *     Send {} to mark all currently visible items. Repeating the request is safe.
+         */
+        post: operations["mark_all_read_api_v1_notifications_read_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark Read
+         * @description Mark one item read. Repeating the request preserves its original read time.
+         */
+        patch: operations["mark_read_api_v1_notifications__notification_id__read_patch"];
+        trace?: never;
+    };
     "/api/v1/notifications/test-email": {
         parameters: {
             query?: never;
@@ -503,6 +616,73 @@ export interface components {
              * Format: password
              */
             password: string;
+        };
+        /** MarkAllReadRequest */
+        MarkAllReadRequest: {
+            /**
+             * Through Id
+             * @description Optional newest loaded ID; newer notifications remain unread. Omit to mark all currently visible rows.
+             */
+            through_id?: number | null;
+        };
+        /** MarkAllReadResponse */
+        MarkAllReadResponse: {
+            /** Updated Count */
+            updated_count: number;
+        };
+        /** NotificationPage */
+        NotificationPage: {
+            /** Items */
+            items: components["schemas"]["NotificationResponse"][];
+            /** Next Before Id */
+            next_before_id: number | null;
+        };
+        /** NotificationPreferences */
+        NotificationPreferences: {
+            /**
+             * In App Enabled
+             * @description Create future in-app notifications. Initially true.
+             */
+            in_app_enabled: boolean;
+            /**
+             * Email Enabled
+             * @description Queue future notification emails. Initially false.
+             */
+            email_enabled: boolean;
+        };
+        /** NotificationResponse */
+        NotificationResponse: {
+            /** Notification Id */
+            notification_id: number;
+            /**
+             * Event Type
+             * @enum {string}
+             */
+            event_type: "INVITATION_RECEIVED" | "INVITATION_ACCEPTED" | "INVITATION_DECLINED" | "PROPOSAL_CREATED" | "POLL_OPENED" | "POLL_TIED" | "ACTIVITY_APPROVED" | "ACTIVITY_REJECTED" | "ACTIVITY_CANCELLED" | "TRIP_DELETED";
+            /** Title */
+            title: string;
+            /** Message */
+            message: string;
+            /** Trip Name */
+            trip_name: string;
+            /** Trip Id */
+            trip_id: number | null;
+            /** Proposal Id */
+            proposal_id: number | null;
+            /** Invitation Id */
+            invitation_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Read At */
+            read_at: string | null;
+            /**
+             * Action Url
+             * @description Relative app path; null when the trip was deleted. Use resource IDs to focus a proposal/invitation.
+             */
+            action_url: string | null;
         };
         /** OpenPollRequest */
         OpenPollRequest: {
@@ -722,6 +902,11 @@ export interface components {
             timezone: string;
             /** Organizer Id */
             organizer_id: number;
+        };
+        /** UnreadCountResponse */
+        UnreadCountResponse: {
+            /** Unread Count */
+            unread_count: number;
         };
         /** UserResponse */
         UserResponse: {
@@ -1702,6 +1887,246 @@ export interface operations {
                 content?: never;
             };
             /** @description Requested resource not found in this trip. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notifications_api_v1_notifications_get: {
+        parameters: {
+            query?: {
+                unread_only?: boolean;
+                before_id?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPage"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unread_count_api_v1_notifications_unread_count_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCountResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_preferences_api_v1_notifications_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_preferences_api_v1_notifications_preferences_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferences"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CSRF validation failed. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_all_read_api_v1_notifications_read_all_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkAllReadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarkAllReadResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CSRF validation failed. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_read_api_v1_notifications__notification_id__read_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CSRF validation failed. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Notification absent or not in your in-app inbox. */
             404: {
                 headers: {
                     [name: string]: unknown;

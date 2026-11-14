@@ -1,15 +1,16 @@
 # Email notifications: setup and first test
 
 The backend sends plain-text notifications through Hostinger SMTP or another
-SMTP provider. The first event is an explicit test request:
+SMTP provider. To test the transport explicitly, use:
 `POST /api/v1/notifications/test-email`. It sends
 only to the signed-in user's email from the database. There is no recipient or
 message input. Both email sending and this diagnostic event are disabled by default.
 
-`EmailService` composes messages and sends them through SMTP; `NotificationService.send_test` supplies the event's
-subject and body. Sending runs in FastAPI's worker thread and the request waits for
-the provider result. No new package or database migration is required. Invitations,
-polls, and other application actions do not send notifications yet.
+`EmailService` composes messages and sends them through SMTP. The diagnostic
+request waits for the provider result and bypasses the user's channel preferences.
+Automatic invitation, poll, and trip updates use a durable background queue and
+respect each user's email opt-in. Apply migration `0008` before running the updated
+backend. See the [notification API and delivery guide](notifications.md).
 
 ## Hostinger Email with your custom domain
 
@@ -148,9 +149,8 @@ the message. These loopback settings are for a host-run backend; a container's
 Provider failures are returned as a generic error. Server logs contain only the
 failure class, without tokens, credentials, recipient addresses, or provider bodies.
 
-This first version does not queue or retry messages and does not track delivery.
-A timeout or disconnect can happen after a provider accepts a message, so a failed
-request does not always mean nothing was sent. A manual retry may send a duplicate.
-Before connecting important business events, add a durable outbox/worker, retries,
-deduplication, verified recipients, notification preferences, and delivery tracking
-as appropriate. A plain-text test event needs none of those database changes.
+The explicit test request is not queued or retried. Automatic notification emails
+are queued, retried with backoff, and canceled on opt-out; see the
+[worker settings and delivery limits](notifications.md#persistence-and-background-email-delivery).
+A timeout can occur after SMTP acceptance, so retrying may send a duplicate.
+SMTP acceptance is not proof of inbox delivery; bounce tracking is not implemented.
