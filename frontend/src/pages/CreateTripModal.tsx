@@ -18,7 +18,8 @@ export function validateTrip(f: Fields): Errors {
   if (!f.end_date) errors.end_date = 'Pick an end date.';
   else if (f.start_date && f.end_date < f.start_date)
     errors.end_date = "End date can't be before the start date.";
-  if (!f.timezone) errors.timezone = 'Pick the time zone the trip is in.';
+  if (!f.timezone.trim())
+    errors.timezone = 'Pick the time zone the trip is in.';
   return errors;
 }
 
@@ -56,6 +57,7 @@ export function CreateTripModal({ onClose }: { onClose: () => void }) {
         ...fields,
         name: fields.name.trim(),
         destination: fields.destination.trim(),
+        timezone: fields.timezone.trim(),
       });
       navigate(`/trips/${trip.trip_id}`);
     } catch (error) {
