@@ -3,15 +3,26 @@ from typing import Annotated, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
+    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
     StringConstraints,
-    field_validator,
     model_validator,
 )
 
 NonBlankText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+def validate_trip_timezone(value: str) -> str:
+    try:
+        ZoneInfo(value)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError("timezone must be a valid IANA timezone, e.g. America/New_York.") from exc
+    return value
+
+
+TripTimezone = Annotated[NonBlankText, AfterValidator(validate_trip_timezone)]
 
 
 class CreateTripRequest(BaseModel):
@@ -20,20 +31,9 @@ class CreateTripRequest(BaseModel):
     destination: NonBlankText
     start_date: date
     end_date: date
-    timezone: NonBlankText = Field(
+    timezone: TripTimezone = Field(
         description="IANA timezone used for the trip's calendar dates, e.g. America/New_York."
     )
-
-    @field_validator("timezone")
-    @classmethod
-    def validate_timezone(cls, value: str) -> str:
-        try:
-            ZoneInfo(value)
-        except (ZoneInfoNotFoundError, ValueError) as exc:
-            raise ValueError(
-                "timezone must be a valid IANA timezone, e.g. America/New_York."
-            ) from exc
-        return value
 
     @model_validator(mode="after")
     def validate_dates(self):
@@ -52,6 +52,32 @@ class TripResponse(BaseModel):
     end_date: date
     timezone: str
     organizer_id: int
+
+
+class UpdateTripRequest(BaseModel):
+    """Partial trip-update request VO; fields match CreateTripRequest."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: NonBlankText | None = None
+    destination: NonBlankText | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    timezone: TripTimezone | None = Field(
+        default=None,
+        description="IANA timezone used for the trip's calendar dates, e.g. America/New_York.",
+    )
+
+    @model_validator(mode="after")
+    def validate_patch(self):
+        if not self.model_fields_set:
+            raise ValueError("Provide at least one trip field to update.")
+        for field in self.model_fields_set:
+            if getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be null.")
+        # Validate the effective dates with CreateTripRequest in the Service:
+        # an omitted date must be taken from the current persisted trip.
+        return self
 
 
 class TripMemberResponse(BaseModel):

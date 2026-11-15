@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, Path, Request, Response, status
 from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_session
-from backend.app.schemas.trip import CreateTripRequest, TripDetailResponse, TripResponse
+from backend.app.schemas.trip import (
+    CreateTripRequest,
+    TripDetailResponse,
+    TripResponse,
+    UpdateTripRequest,
+)
 from backend.app.services.TripService import TripService
 
 router = APIRouter(
@@ -54,6 +59,25 @@ def get_trip(
 ) -> TripDetailResponse:
     """Get trip details and the complete member list; trip membership required."""
     return service.get_trip(trip_id, request.state.current_user.user_id)
+
+
+@router.patch(
+    "/{trip_id}",
+    response_model=TripResponse,
+    responses={
+        403: {"description": "Organizer required."},
+        404: {"description": "Trip not found."},
+        422: {"description": "Invalid update or start_date later than end_date."},
+    },
+)
+def update_trip(
+    trip_id: TripId,
+    body: UpdateTripRequest,
+    request: Request,
+    service: TripServiceDependency,
+) -> TripResponse:
+    """Update supplied trip fields as Organizer; dates must remain valid together."""
+    return service.update_trip(trip_id, body, request.state.current_user.user_id)
 
 
 @router.delete(

@@ -16,7 +16,7 @@ The FastAPI backend supports:
 - Persistent in-app notifications, independent in-app/email preferences, and a
   durable email queue for invitation, voting, itinerary, and trip updates.
 - Trip creation with an organizer membership, member-only trip details, listing,
-  and organizer-only deletion.
+  organizer-only partial updates (US-18), and organizer-only deletion.
 - Invitations to registered users, acceptance/decline, and an eight-participant
   limit including the organizer.
 - Activity proposals with description, estimated cost, and timezone-aware times;

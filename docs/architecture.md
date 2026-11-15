@@ -34,7 +34,7 @@ clears cookies on Redis failure and returns 503 to report unconfirmed revocation
 Users must log in once after upgrading to obtain both new credentials. Tokens are
 never returned in JSON. Cookie responses include Cache-Control: no-store.
 
-Trip Management exposes authenticated create, list, detail, and delete routes at
+Trip Management exposes authenticated create, list, detail, update, and delete routes at
 `/api/v1/trips`. Creation inserts the trip and Organizer membership, then commits
 both together; failures roll back both writes. Details return the trip fields and
 all members after verifying membership: absent trips return 404 and non-members
@@ -48,6 +48,19 @@ client cannot choose its own Organizer identity. Request DTOs validate nonblank
 names/destinations and date order. Detail queries do not flush or commit the Session.
 The authentication lookup already starts the shared Session transaction, so write
 services should finish it with commit/rollback rather than calling begin again.
+
+US-18 adds PATCH `/api/v1/trips/{trip_id}` for the Organizer. Only name,
+destination, start_date, end_date, and timezone may be supplied; omitted fields stay unchanged.
+Empty bodies, nulls, blank text, and unsupported fields return 422. The Service locks
+and refreshes the trip row, requires the Organizer, merges the patch with current
+data, and validates the effective fields using CreateTripRequest. Invalid dates
+return 422 before mutation. Updates flush and commit once, with rollback on failure.
+The shared trip lock serializes partial edits so concurrent date changes cannot
+validate against stale values. Group Members see the saved values through the
+existing list and detail endpoints; membership remains unchanged. Create and update
+request VOs share the same IANA timezone validator. Omitted timezone stays unchanged.
+No new tables or migrations are required. Proposal, poll, and itinerary records
+are not rescheduled by metadata updates.
 
 `InvitationController` exposes POST `/trips/{trip_id}/invitations`, GET
 `/invitations`, and PATCH `/invitations` under `/api/v1`. Creation, listing, and responses are implemented and require authentication. Creation accepts the registered recipient's `email` or

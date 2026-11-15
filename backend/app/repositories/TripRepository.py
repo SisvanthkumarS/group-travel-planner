@@ -38,6 +38,19 @@ class TripRepository:
             )
         return self.session.get(Trip, trip_id)
 
+    def find_by_id_for_update(self, trip_id: int) -> Trip | None:
+        statement = (
+            select(Trip)
+            .where(Trip.trip_id == trip_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        return self.session.scalar(statement)
+
+    def save(self, trip: Trip) -> Trip:
+        self.session.flush()
+        return trip
+
     def find_membership(self, trip_id: int, user_id: int) -> TripMember | None:
         statement = select(TripMember).where(
             TripMember.trip_id == trip_id,
