@@ -5,6 +5,7 @@ import type { Invitation, Trip } from '../api/types';
 import { useAuth } from '../auth/AuthProvider';
 import { PlusIcon, QueryError, RoleChip } from '../components/bits';
 import { tripDates } from '../lib/format';
+import { describeInvitation } from '../lib/invitations';
 import { CreateTripModal } from './CreateTripModal';
 
 /** US-06: a pending invitation names its trip, dates and Organizer. */
@@ -24,18 +25,28 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
     }
   }
 
+  const { title, destination, dates, invitedBy } =
+    describeInvitation(invitation);
+
   return (
     <li className="invite-row">
       <div className="invite-row__text">
-        <span className="invite-row__title">{invitation.trip_name}</span>
+        <span className="invite-row__title">{title}</span>
         <span className="invite-row__meta">
-          {invitation.destination}
-          {' · '}
-          <span className="mono">
-            {tripDates(invitation.start_date, invitation.end_date)}
-          </span>
-          {' · '}
-          Invited by <strong>{invitation.invited_by_user_name}</strong>
+          {destination && <>{destination} · </>}
+          {dates && (
+            <>
+              <span className="mono">{dates}</span>
+              {' · '}
+            </>
+          )}
+          {invitedBy ? (
+            <>
+              Invited by <strong>{invitedBy}</strong>
+            </>
+          ) : (
+            'You were invited to plan a trip'
+          )}
         </span>
         {error && (
           <span className="field__error" role="alert">

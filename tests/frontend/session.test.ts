@@ -146,55 +146,66 @@ describe('cached user', () => {
 });
 
 describe('restoreSession (US-02, US-03)', () => {
-  it('uses GET /auth/me when the backend has it', async () => {
-    const fetch = vi.fn().mockResolvedValue(json(user));
-    vi.stubGlobal('fetch', fetch);
-
-    await expect(restoreSession()).resolves.toEqual(user);
-    expect(fetch.mock.calls[0][0]).toMatch(/\/auth\/me$/);
-  });
-
-  it('is signed out when /auth/me returns 401', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(json({ detail: 'x' }, 401)),
-    );
-    await expect(restoreSession()).resolves.toBeNull();
-  });
-
-  it('falls back to the cached user while /auth/me is missing', async () => {
+  it('confirms the cached user through the existing trips endpoint only', async () => {
     writeCachedUser(user);
-    const fetch = vi
-      .fn()
-      .mockResolvedValueOnce(json({ detail: 'Not Found' }, 404))
-      .mockResolvedValueOnce(json([]));
+    const fetch = vi.fn().mockResolvedValue(json([]));
     vi.stubGlobal('fetch', fetch);
 
     await expect(restoreSession()).resolves.toEqual(user);
-    expect(fetch.mock.calls[1][0]).toMatch(/\/trips$/);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch.mock.calls[0][0]).toMatch(/\/trips$/);
+    expect(fetch.mock.calls[0][1]).toMatchObject({
+      method: 'GET',
+      credentials: 'include',
+    });
   });
 
   it('signs out and clears the cache when the cookie has expired', async () => {
+    writeCachedUser(user);
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(json({ detail: 'Authentication required.' }, 401));
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(restoreSession()).resolves.toBeNull();
+    expect(readCachedUser()).toBeNull();
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it('makes no request when there is no cached user', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(restoreSession()).resolves.toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('preserves the cached user when the backend is temporarily unavailable', async () => {
     writeCachedUser(user);
     vi.stubGlobal(
       'fetch',
       vi
         .fn()
-        .mockResolvedValueOnce(json({ detail: 'Not Found' }, 404))
-        .mockResolvedValueOnce(
-          json({ detail: 'Authentication required.' }, 401),
+        .mockResolvedValue(
+          json(
+            { detail: 'Authentication service temporarily unavailable.' },
+            503,
+          ),
         ),
     );
 
-    await expect(restoreSession()).resolves.toBeNull();
-    expect(readCachedUser()).toBeNull();
+    await expect(restoreSession()).rejects.toMatchObject({ status: 503 });
+    expect(readCachedUser()).toEqual(user);
   });
 
-  it('is signed out with no cached user and no /auth/me', async () => {
-    const fetch = vi.fn().mockResolvedValue(json({ detail: 'Not Found' }, 404));
-    vi.stubGlobal('fetch', fetch);
+  it('preserves the cached user on network failure', async () => {
+    writeCachedUser(user);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new TypeError('Network failed')),
+    );
 
-    await expect(restoreSession()).resolves.toBeNull();
-    expect(fetch).toHaveBeenCalledOnce();
+    await expect(restoreSession()).rejects.toMatchObject({ status: 0 });
+    expect(readCachedUser()).toEqual(user);
   });
 });

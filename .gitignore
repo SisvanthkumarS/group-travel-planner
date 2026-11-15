@@ -12,3 +12,4 @@ coverage/
 .coverage
 .husky/_/
 .tools/
+certs
