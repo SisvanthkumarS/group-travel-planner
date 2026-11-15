@@ -15,6 +15,7 @@ from backend.app.services.InvitationService import InvitationService
 @pytest.fixture
 def service():
     service = InvitationService(Mock(spec=Session))
+    service.notifications = Mock()
     service.trip_invitation_repository = Mock()
     service.trip_repository = Mock()
     service.user_repository = Mock()
@@ -62,6 +63,11 @@ def test_create_invitation_commits_pending_record(service, identifier):
     )
     assert result.invited_by_user_name == "Olivia"
     service.repository.find_user.assert_called_once_with(7)
+    assert service.notifications.publish.call_args.kwargs["recipients"] == [8]
+    assert (
+        service.notifications.publish.call_args.kwargs["event_type"]
+        == "INVITATION_RECEIVED"
+    )
     service.session.commit.assert_called_once()
     service.session.rollback.assert_not_called()
 

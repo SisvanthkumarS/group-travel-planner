@@ -31,7 +31,11 @@ class TripRepository:
         )
         return list(self.session.scalars(statement).all())
 
-    def find_by_id(self, trip_id: int) -> Trip | None:
+    def find_by_id(self, trip_id: int, *, lock=False) -> Trip | None:
+        if lock:
+            return self.session.scalar(
+                select(Trip).where(Trip.trip_id == trip_id).with_for_update()
+            )
         return self.session.get(Trip, trip_id)
 
     def find_membership(self, trip_id: int, user_id: int) -> TripMember | None:

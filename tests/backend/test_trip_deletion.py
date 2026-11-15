@@ -13,6 +13,7 @@ from backend.app.services.TripService import TripService
 def test_rejected_deletion_does_not_write(case, expected):
     session = Mock(spec=Session)
     service = TripService(session)
+    service.notifications = Mock()
     service.repository = Mock(spec=TripRepository)
     service.repository.find_by_id.return_value = (
         None if case == "missing" else Trip(organizer_id=8)
@@ -29,6 +30,7 @@ def test_delete_commit_failure_rolls_back():
     session = Mock(spec=Session)
     session.commit.side_effect = RuntimeError("Commit failed")
     service = TripService(session)
+    service.notifications = Mock()
     service.repository = Mock(spec=TripRepository)
     trip = Trip(trip_id=12, organizer_id=7)
     service.repository.find_by_id.return_value = trip
