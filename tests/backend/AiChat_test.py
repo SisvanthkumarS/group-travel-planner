@@ -960,3 +960,131 @@ def test_delete_chat_cascades_to_drafts_and_keeps_submitted_proposals(
                 select(Proposal.proposal_id).where(Proposal.trip_id == trip_id)
             )
         ) == set(accepted.proposal_ids)
+
+
+def test_shared_trip_chat_keeps_history_and_draft_permissions(database, decision_data):
+    legacy_chat_id, legacy_draft_id, organizer_id, trip_id = decision_data
+    draft_content = database.get(AiChatDraft, legacy_draft_id).proposals
+    member = User(
+        user_name=uuid4().hex[:20],
+        email=f"{uuid4()}@example.com",
+        password_hash="unused",
+    )
+    database.add(member)
+    database.flush()
+    member_id = member.user_id
+    database.add(TripMember(trip_id=trip_id, user_id=member_id, role="MEMBER"))
+    database.commit()
+    try:
+        _exercise_shared_chat(
+            database, trip_id, organizer_id, member_id, legacy_chat_id, draft_content
+        )
+    finally:
+        database.rollback()
+        database.execute(delete(Proposal).where(Proposal.author_id == member_id))
+        database.execute(delete(User).where(User.user_id == member_id))
+        database.commit()
+
+
+def _exercise_shared_chat(
+    database, trip_id, organizer_id, member_id, legacy_chat_id, draft_content
+):
+    organizer = AiChatService(database)
+    assert (
+        organizer.list_shared_messages(
+            trip_id, organizer_id, before_id=None, limit=30
+        ).messages
+        == []
+    )
+    prior = organizer.post_shared_message(
+        trip_id,
+        AiChatSendMessageRequest(content="We have a free morning."),
+        organizer_id,
+    )
+    assert prior.user_id == organizer_id and prior.role == "USER"
+    assert prior.chat_id != legacy_chat_id
+
+    breakfast = Proposal(
+        trip_id=trip_id,
+        author_id=organizer_id,
+        title="Breakfast",
+        description="Meet at the hotel cafe.",
+        estimated_cost=Decimal("15.00"),
+        location="Hotel cafe",
+        starts_at=datetime(2090, 1, 1, 12, tzinfo=UTC),
+        ends_at=datetime(2090, 1, 1, 13, tzinfo=UTC),
+        status="APPROVED",
+    )
+    database.add(breakfast)
+    database.flush()
+    database.add(ItineraryItem(proposal_id=breakfast.proposal_id))
+    database.commit()
+    context = organizer.get_shared_context(trip_id, member_id)
+    assert [item.title for item in context.itinerary] == ["Breakfast"]
+    with pytest.raises(HTTPException) as unavailable:
+        organizer.ask_shared_chat(
+            trip_id,
+            AiChatSendMessageRequest(content="Ask while AI is unavailable"),
+            member_id,
+        )
+    assert unavailable.value.status_code == 503
+
+    def generate(*, messages, trip_context):
+        assert [message["content"] for message in messages] == [
+            f"Trip member {organizer_id}: We have a free morning.",
+            "Draft an itinerary for us.",
+        ]
+        assert trip_context["destination"] == "NYC"
+        assert trip_context["itinerary"] == context.model_dump(mode="json")["itinerary"]
+        with Session(database.get_bind()) as other_session:
+            other = AiChatService(other_session, provider)
+            other.post_shared_message(
+                trip_id, AiChatSendMessageRequest(content="Just arrived."), organizer_id
+            )
+            with pytest.raises(HTTPException) as conflict:
+                other.ask_shared_chat(
+                    trip_id,
+                    AiChatSendMessageRequest(content="Another question"),
+                    organizer_id,
+                )
+            assert conflict.value.status_code == 409
+        return {
+            "content": "Here is a morning itinerary.",
+            "draft": {"kind": "ITINERARY", "proposals": draft_content},
+        }
+
+    provider = Mock()
+    provider.generate.side_effect = generate
+    result = AiChatService(database, provider).ask_shared_chat(
+        trip_id,
+        AiChatSendMessageRequest(content="Draft an itinerary for us."),
+        member_id,
+    )
+    assert provider.generate.call_count == 1
+    assert result.user_message.user_id == member_id
+    reply = result.assistant_message
+    assert reply.role == "ASSISTANT" and reply.user_id is None
+    assert reply.reply_to_message_id == result.user_message.message_id
+    draft = reply.draft
+    assert draft is not None and draft.status == "PENDING"
+    history = organizer.list_shared_messages(
+        trip_id, organizer_id, before_id=None, limit=30
+    )
+    assert [message.content for message in history.messages] == [
+        "Just arrived.",
+        reply.content,
+        result.user_message.content,
+        prior.content,
+    ]
+    decision = AiChatDraftDecisionRequest(decision="ACCEPT")
+    with pytest.raises(HTTPException) as forbidden:
+        organizer.decide_shared_draft(trip_id, draft.draft_id, decision, organizer_id)
+    assert forbidden.value.status_code == 403
+    accepted = organizer.decide_shared_draft(
+        trip_id, draft.draft_id, decision, member_id
+    )
+    assert accepted.status == "ACCEPTED"
+    assert len(accepted.proposal_ids) == 2
+    with pytest.raises(HTTPException) as nonmember:
+        organizer.list_shared_messages(trip_id, 0, before_id=None, limit=30)
+    assert nonmember.value.status_code == 403

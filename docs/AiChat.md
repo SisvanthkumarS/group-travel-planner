@@ -3,6 +3,38 @@
 All routes use the `/api/v1` prefix and existing cookie authentication.
 For POST, PATCH and DELETE, send `X-CSRF-Protection: 1`.
 
+## Shared Trip chat
+
+Every Trip has one shared conversation available to its current members. Reading
+an unused room returns an empty message page. The first successful send creates
+the room automatically.
+
+| Method | Path                                      | Request                                                | Success                        |
+| ------ | ----------------------------------------- | ------------------------------------------------------ | ------------------------------ |
+| GET    | `/trips/{trip_id}/chat/messages`          | Optional `before_id` and `limit` (default 30, max 100) | 200, message page              |
+| POST   | `/trips/{trip_id}/chat/messages`          | `{"content":"Meet in the lobby"}`                      | 201, member message            |
+| POST   | `/trips/{trip_id}/chat/ask-ai`            | `{"content":"What should we do next?"}`                | 201, question and AI reply     |
+| GET    | `/trips/{trip_id}/chat/context`           | No body                                                | 200, Trip and active itinerary |
+| PATCH  | `/trips/{trip_id}/chat/drafts/{draft_id}` | `{"decision":"ACCEPT"}` or `{"decision":"REJECT"}`     | 200, updated draft             |
+
+Messages identify their author with `role` and `user_id`. AI replies have
+`role: "ASSISTANT"`, `user_id: null`, and a `reply_to_message_id` that points to
+the member's question. The message page is newest first and returns
+`next_before_id` for older pages.
+
+Ordinary messages are saved locally. An explicit AI question sends the latest
+Trip and itinerary plus a snapshot of up to 20 completed messages from before
+the question was saved. Messages sent during generation appear in the room and
+can be included in later AI calls. The room allows one active AI reply at a
+time. A concurrent AI request returns 409. Ordinary messages remain available
+throughout generation and when the provider is unavailable.
+
+All members can view PENDING drafts. The member who asked AI can accept or reject
+the draft. Accepted activities enter the existing Proposal workflow. For the
+provider and draft error behavior, see the sections below.
+
+## Provider configuration
+
 Set the following values in the repository root `.env` for a local backend, or
 in `docker/.env` for Docker Compose.
 
@@ -15,6 +47,11 @@ OPENAI_TIMEOUT_SECONDS=30
 Only the API key is required. Use a model that supports Responses API Structured
 Outputs. After adding the SDK, rebuild the Docker backend once with
 `docker compose --env-file docker/.env -f docker/compose.dev.yml up -d --build backend`.
+
+## Legacy private chats
+
+The following routes are deprecated. Existing private conversations stay
+accessible to their original owners.
 
 | Method | Path                                 | Request                                                    | Success contract                                                     |
 | ------ | ------------------------------------ | ---------------------------------------------------------- | -------------------------------------------------------------------- |

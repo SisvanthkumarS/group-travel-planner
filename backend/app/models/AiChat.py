@@ -11,6 +11,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -25,7 +26,7 @@ class AiChatSession(Base):
     trip_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("trips.trip_id", ondelete="CASCADE")
     )
-    user_id: Mapped[int] = mapped_column(
+    user_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.user_id", ondelete="CASCADE")
     )
     title: Mapped[str] = mapped_column(Text)
@@ -42,6 +43,12 @@ class AiChatSession(Base):
             chat_id.desc(),
         ),
         Index("idx_chat_sessions_user", "user_id"),
+        Index(
+            "uq_chat_sessions_shared_trip",
+            trip_id,
+            unique=True,
+            postgresql_where=text("user_id IS NULL"),
+        ),
     )
 
 
@@ -53,6 +60,12 @@ class AiChatMessage(Base):
         BigInteger, ForeignKey("chat_sessions.chat_id", ondelete="CASCADE")
     )
     role: Mapped[str] = mapped_column(Text)
+    user_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.user_id", ondelete="SET NULL")
+    )
+    reply_to_message_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("chat_messages.message_id", ondelete="SET NULL")
+    )
     content: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, server_default="COMPLETED")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
