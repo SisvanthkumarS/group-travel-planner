@@ -519,6 +519,15 @@ a:hover {
   background: #ffffff;
   color: var(--ink);
 }
+.btn--ghost-light {
+  background: transparent;
+  border-color: #3a4c66;
+  color: #ffffff;
+  font-weight: 500;
+}
+.btn--ghost-light:hover:not(:disabled) {
+  border-color: #ffffff;
+}
 .btn--ghost-danger {
   background: transparent;
   border-color: #3a4c66;
