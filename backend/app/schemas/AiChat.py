@@ -2,7 +2,14 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from backend.app.schemas.activity import CreateProposalRequest
 
@@ -24,6 +31,13 @@ class AiChatSendMessageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
+
+    @field_validator("content")
+    @classmethod
+    def reject_nul(cls, value: str) -> str:
+        if "\x00" in value:
+            raise ValueError("Message cannot contain a null character.")
+        return value
 
 
 class AiChatDraftDecisionRequest(BaseModel):
@@ -111,6 +125,11 @@ class AiChatMessageResponse(BaseModel):
     draft: AiChatDraftResponse | None = None
 
 
+class AiChatSharedMessageResponse(AiChatMessageResponse):
+    user_id: int | None
+    reply_to_message_id: int | None
+
+
 class AiChatMessagePage(BaseModel):
     messages: list[AiChatMessageResponse]
     next_before_id: int | None
@@ -119,3 +138,12 @@ class AiChatMessagePage(BaseModel):
 class AiChatSendMessageResponse(BaseModel):
     user_message: AiChatMessageResponse
     assistant_message: AiChatMessageResponse
+
+
+class AiChatSharedMessagePage(AiChatMessagePage):
+    messages: list[AiChatSharedMessageResponse]
+
+
+class AiChatSharedReply(AiChatSendMessageResponse):
+    user_message: AiChatSharedMessageResponse
+    assistant_message: AiChatSharedMessageResponse

@@ -38,6 +38,14 @@ class AiChatRepository:
         )
         return list(self.session.scalars(statement))
 
+    def find_shared_chat(self, trip_id: int, *, lock: bool = False) -> AiChatSession | None:
+        statement = select(AiChatSession).where(
+            AiChatSession.trip_id == trip_id, AiChatSession.user_id.is_(None)
+        )
+        if lock:
+            statement = statement.with_for_update().execution_options(populate_existing=True)
+        return self.session.scalar(statement)
+
     def add_message(self, message: AiChatMessage) -> AiChatMessage:
         self.session.add(message)
         self.session.flush()
@@ -51,7 +59,13 @@ class AiChatRepository:
         )
 
     def list_messages(
-        self, chat_id: int, user_id: int, *, limit: int, before_id: int | None = None
+        self,
+        chat_id: int,
+        user_id: int | None,
+        *,
+        limit: int,
+        before_id: int | None = None,
+        completed_only: bool = False,
     ) -> list[AiChatMessage]:
         """Read newest first; callers can request one extra row to detect another page."""
         statement = (
@@ -63,6 +77,16 @@ class AiChatRepository:
         )
         if before_id is not None:
             statement = statement.where(AiChatMessage.message_id < before_id)
+        if completed_only:
+            statement = statement.where(AiChatMessage.status == "COMPLETED")
+        return list(self.session.scalars(statement))
+
+    def generating_messages(self, chat_id: int) -> list[AiChatMessage]:
+        statement = select(AiChatMessage).where(
+            AiChatMessage.chat_id == chat_id,
+            AiChatMessage.role == "ASSISTANT",
+            AiChatMessage.status == "GENERATING",
+        )
         return list(self.session.scalars(statement))
 
     def add_draft(self, draft: AiChatDraft) -> AiChatDraft:
@@ -70,7 +94,7 @@ class AiChatRepository:
         self.session.flush()
         return draft
 
-    def _owned_drafts(self, chat_id: int, user_id: int):
+    def _chat_drafts(self, chat_id: int, user_id: int | None):
         return (
             select(AiChatDraft)
             .join(AiChatMessage)
@@ -79,18 +103,18 @@ class AiChatRepository:
         )
 
     def list_drafts(
-        self, chat_id: int, user_id: int, message_ids: Sequence[int]
+        self, chat_id: int, user_id: int | None, message_ids: Sequence[int]
     ) -> list[AiChatDraft]:
         return list(
             self.session.scalars(
-                self._owned_drafts(chat_id, user_id).where(AiChatDraft.message_id.in_(message_ids))
+                self._chat_drafts(chat_id, user_id).where(AiChatDraft.message_id.in_(message_ids))
             )
         )
 
     def find_draft(
-        self, chat_id: int, draft_id: int, user_id: int, *, lock: bool = False
+        self, chat_id: int, draft_id: int, user_id: int | None, *, lock: bool = False
     ) -> AiChatDraft | None:
-        statement = self._owned_drafts(chat_id, user_id).where(AiChatDraft.draft_id == draft_id)
+        statement = self._chat_drafts(chat_id, user_id).where(AiChatDraft.draft_id == draft_id)
         if lock:
             statement = statement.with_for_update(of=AiChatDraft).execution_options(
                 populate_existing=True
