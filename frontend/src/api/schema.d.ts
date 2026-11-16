@@ -120,7 +120,11 @@ export interface paths {
         delete: operations["delete_trip_api_v1_trips__trip_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Trip
+         * @description Update supplied trip fields as Organizer; dates must remain valid together.
+         */
+        patch: operations["update_trip_api_v1_trips__trip_id__patch"];
         trace?: never;
     };
     "/api/v1/trips/{trip_id}/invitations": {
@@ -339,6 +343,205 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/trips/{trip_id}/chat/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Shared Context
+         * @description Read the Trip and active itinerary used to answer AI questions.
+         */
+        get: operations["get_shared_context_api_v1_trips__trip_id__chat_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trips/{trip_id}/chat/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Shared Messages
+         * @description Read the Trip's shared messages in newest-first order.
+         */
+        get: operations["list_shared_messages_api_v1_trips__trip_id__chat_messages_get"];
+        put?: never;
+        /**
+         * Post Shared Message
+         * @description Post a group message without calling AI.
+         */
+        post: operations["post_shared_message_api_v1_trips__trip_id__chat_messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trips/{trip_id}/chat/ask-ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Shared Chat
+         * @description Ask AI using the preceding group messages and the current itinerary.
+         */
+        post: operations["ask_shared_chat_api_v1_trips__trip_id__chat_ask_ai_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trips/{trip_id}/chat/drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Decide Shared Draft
+         * @description Accept or reject a draft as the member who asked AI.
+         */
+        patch: operations["decide_shared_draft_api_v1_trips__trip_id__chat_drafts__draft_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/trips/{trip_id}/chats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Chats
+         * @deprecated
+         * @description List the current user's chats in the trip, most recently updated first.
+         */
+        get: operations["list_chats_api_v1_trips__trip_id__chats_get"];
+        put?: never;
+        /**
+         * Create Chat
+         * @deprecated
+         * @description Create a private chat in a trip the current user belongs to.
+         */
+        post: operations["create_chat_api_v1_trips__trip_id__chats_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chats/{chat_id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Chat Context
+         * @deprecated
+         * @description Read the current trip and active itinerary used as AI chat context.
+         */
+        get: operations["get_chat_context_api_v1_chats__chat_id__context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chats/{chat_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Messages
+         * @deprecated
+         * @description Read messages and their drafts, newest first, with an exclusive before_id cursor.
+         */
+        get: operations["list_messages_api_v1_chats__chat_id__messages_get"];
+        put?: never;
+        /**
+         * Send Message
+         * @deprecated
+         * @description Send a message and receive an AI reply that can contain a draft.
+         */
+        post: operations["send_message_api_v1_chats__chat_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/chats/{chat_id}/drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Decide Draft
+         * @deprecated
+         * @description Accept or reject a draft. Accepted proposals enter the existing PENDING workflow.
+         */
+        patch: operations["decide_draft_api_v1_chats__chat_id__drafts__draft_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/chats/{chat_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Chat
+         * @deprecated
+         * @description Delete a chat and its drafts while preserving submitted proposals.
+         */
+        delete: operations["delete_chat_api_v1_chats__chat_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications": {
         parameters: {
             query?: never;
@@ -479,6 +682,234 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AiChatContextResponse */
+        AiChatContextResponse: {
+            /**
+             * Current Time
+             * Format: date-time
+             */
+            current_time: string;
+            /** Name */
+            name: string;
+            /** Destination */
+            destination: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Timezone */
+            timezone: string;
+            /** Itinerary */
+            itinerary: components["schemas"]["AiChatItineraryActivity"][];
+        };
+        /** AiChatCreateRequest */
+        AiChatCreateRequest: {
+            /**
+             * Title
+             * @default New chat
+             */
+            title: string;
+        };
+        /** AiChatDraftDecisionRequest */
+        AiChatDraftDecisionRequest: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "ACCEPT" | "REJECT";
+        };
+        /** AiChatDraftResponse */
+        AiChatDraftResponse: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "PROPOSAL" | "ITINERARY";
+            /** Proposals */
+            proposals: components["schemas"]["CreateProposalRequest-Output"][];
+            /** Draft Id */
+            draft_id: number;
+            /** Message Id */
+            message_id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "ACCEPTED" | "REJECTED";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Decided At */
+            decided_at: string | null;
+            /** Proposal Ids */
+            proposal_ids: number[];
+        };
+        /** AiChatItineraryActivity */
+        AiChatItineraryActivity: {
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Location */
+            location: string;
+            /** Estimated Cost */
+            estimated_cost: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+        };
+        /** AiChatMessagePage */
+        AiChatMessagePage: {
+            /** Messages */
+            messages: components["schemas"]["AiChatMessageResponse"][];
+            /** Next Before Id */
+            next_before_id: number | null;
+        };
+        /** AiChatMessageResponse */
+        AiChatMessageResponse: {
+            /** Message Id */
+            message_id: number;
+            /** Chat Id */
+            chat_id: number;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "USER" | "ASSISTANT";
+            /** Content */
+            content: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "GENERATING" | "COMPLETED" | "FAILED" | "CANCELLED";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            draft?: components["schemas"]["AiChatDraftResponse"] | null;
+        };
+        /** AiChatSendMessageRequest */
+        AiChatSendMessageRequest: {
+            /** Content */
+            content: string;
+        };
+        /** AiChatSendMessageResponse */
+        AiChatSendMessageResponse: {
+            user_message: components["schemas"]["AiChatMessageResponse"];
+            assistant_message: components["schemas"]["AiChatMessageResponse"];
+        };
+        /** AiChatSessionResponse */
+        AiChatSessionResponse: {
+            /** Chat Id */
+            chat_id: number;
+            /** Trip Id */
+            trip_id: number;
+            /** User Id */
+            user_id: number;
+            /** Title */
+            title: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** AiChatSharedDraftResponse */
+        AiChatSharedDraftResponse: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "PROPOSAL" | "ITINERARY";
+            /** Proposals */
+            proposals: components["schemas"]["CreateProposalRequest-Output"][];
+            /** Draft Id */
+            draft_id: number;
+            /** Message Id */
+            message_id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "ACCEPTED" | "REJECTED";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Decided At */
+            decided_at: string | null;
+            /** Proposal Ids */
+            proposal_ids: number[];
+            /**
+             * Asked By User Id
+             * @description Author of the original AI question, or null if no longer available.
+             */
+            asked_by_user_id: number | null;
+        };
+        /** AiChatSharedMessagePage */
+        AiChatSharedMessagePage: {
+            /** Messages */
+            messages: components["schemas"]["AiChatSharedMessageResponse"][];
+            /** Next Before Id */
+            next_before_id: number | null;
+        };
+        /** AiChatSharedMessageResponse */
+        AiChatSharedMessageResponse: {
+            /** Message Id */
+            message_id: number;
+            /** Chat Id */
+            chat_id: number;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "USER" | "ASSISTANT";
+            /** Content */
+            content: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "GENERATING" | "COMPLETED" | "FAILED" | "CANCELLED";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            draft?: components["schemas"]["AiChatSharedDraftResponse"] | null;
+            /** User Id */
+            user_id: number | null;
+            /** Reply To Message Id */
+            reply_to_message_id: number | null;
+        };
+        /** AiChatSharedReply */
+        AiChatSharedReply: {
+            user_message: components["schemas"]["AiChatSharedMessageResponse"];
+            assistant_message: components["schemas"]["AiChatSharedMessageResponse"];
+        };
         /** CreateInvitationRequest */
         CreateInvitationRequest: {
             /** Email */
@@ -487,13 +918,34 @@ export interface components {
             user_name?: string | null;
         };
         /** CreateProposalRequest */
-        CreateProposalRequest: {
+        "CreateProposalRequest-Input": {
             /** Title */
             title: string;
             /** Description */
             description: string;
             /** Estimated Cost */
             estimated_cost: number | string;
+            /** Location */
+            location: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+        };
+        /** CreateProposalRequest */
+        "CreateProposalRequest-Output": {
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Estimated Cost */
+            estimated_cost: string;
             /** Location */
             location: string;
             /**
@@ -908,6 +1360,25 @@ export interface components {
             /** Unread Count */
             unread_count: number;
         };
+        /**
+         * UpdateTripRequest
+         * @description Partial trip-update request VO; fields match CreateTripRequest.
+         */
+        UpdateTripRequest: {
+            /** Name */
+            name?: string | null;
+            /** Destination */
+            destination?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** End Date */
+            end_date?: string | null;
+            /**
+             * Timezone
+             * @description IANA timezone used for the trip's calendar dates, e.g. America/New_York.
+             */
+            timezone?: string | null;
+        };
         /** UserResponse */
         UserResponse: {
             /** User Name */
@@ -1286,6 +1757,61 @@ export interface operations {
             };
         };
     };
+    update_trip_api_v1_trips__trip_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Trip ID */
+                trip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTripRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Organizer required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid update or start_date later than end_date. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     create_invitation_api_v1_trips__trip_id__invitations_post: {
         parameters: {
             query?: never;
@@ -1501,7 +2027,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateProposalRequest"];
+                "application/json": components["schemas"]["CreateProposalRequest-Input"];
             };
         };
         responses: {
@@ -1887,6 +2413,726 @@ export interface operations {
                 content?: never;
             };
             /** @description Requested resource not found in this trip. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_shared_context_api_v1_trips__trip_id__chat_context_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatContextResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_shared_messages_api_v1_trips__trip_id__chat_messages_get: {
+        parameters: {
+            query?: {
+                before_id?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                trip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatSharedMessagePage"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_shared_message_api_v1_trips__trip_id__chat_messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiChatSendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatSharedMessageResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_shared_chat_api_v1_trips__trip_id__chat_ask_ai_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiChatSendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatSharedReply"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Generation conflict or the trip proposal limit is reached. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The AI provider failed or returned an invalid reply. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No AI provider is configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The AI provider timed out. */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    decide_shared_draft_api_v1_trips__trip_id__chat_drafts__draft_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trip_id: number;
+                draft_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiChatDraftDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatSharedDraftResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Draft decision conflicts or the trip proposal limit is reached. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid decision or draft proposals. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_chats_api_v1_trips__trip_id__chats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatSessionResponse"][];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_chat_api_v1_trips__trip_id__chats_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trip_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiChatCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatSessionResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_chat_context_api_v1_chats__chat_id__context_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatContextResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_messages_api_v1_chats__chat_id__messages_get: {
+        parameters: {
+            query?: {
+                before_id?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatMessagePage"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_message_api_v1_chats__chat_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiChatSendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatSendMessageResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Generation conflict or the trip proposal limit is reached. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The AI provider failed or returned an invalid reply. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No AI provider is configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The AI provider timed out. */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    decide_draft_api_v1_chats__chat_id__drafts__draft_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+                draft_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiChatDraftDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiChatDraftResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Draft decision conflicts or the trip proposal limit is reached. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid decision or draft proposals. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_chat_api_v1_chats__chat_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip membership or chat ownership required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trip, chat, or draft not found. */
             404: {
                 headers: {
                     [name: string]: unknown;

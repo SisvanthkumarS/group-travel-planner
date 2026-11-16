@@ -15,6 +15,15 @@ import {
   vote,
   withdrawProposal,
 } from './proposals';
+import { useInfiniteQuery as useChatPages } from '@tanstack/react-query';
+import { CHAT_POLL_MS } from '../lib/chat';
+import {
+  askAi,
+  decideDraft,
+  getChatContext,
+  listChatMessages,
+  sendChatMessage,
+} from './chat';
 import { queryKeys } from './queryClient';
 import { createTrip, deleteTrip, getTrip, listTrips } from './trips';
 import type {
@@ -51,6 +60,51 @@ export const useItinerary = (tripId: number) =>
 
 export const useInvitations = () =>
   useQuery({ queryKey: queryKeys.invitations, queryFn: listInvitations });
+
+// Shared trip chat. Polls while the chat tab is mounted (and the browser tab
+// is visible), so other members' messages and AI progress show up on their own.
+
+export const useChatMessages = (tripId: number) =>
+  useChatPages({
+    queryKey: queryKeys.chat(tripId),
+    queryFn: ({ pageParam }) => listChatMessages(tripId, pageParam),
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (page) => page.next_before_id ?? undefined,
+    refetchInterval: CHAT_POLL_MS,
+  });
+
+export const useChatContext = (tripId: number) =>
+  useQuery({
+    queryKey: queryKeys.chatContext(tripId),
+    queryFn: () => getChatContext(tripId),
+  });
+
+export function useSendChatMessage(tripId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) => sendChatMessage(tripId, content),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.chat(tripId) }),
+  });
+}
+
+/** Refreshes on failure too: a failed answer still leaves the question and a FAILED reply. */
+export function useAskAi(tripId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) => askAi(tripId, content),
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.chat(tripId) }),
+  });
+}
+
+/** Accepting adds proposals, so the whole trip (chat, proposals) refreshes. */
+export function useDecideDraft(tripId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { draftId: number; decision: 'ACCEPT' | 'REJECT' }) =>
+      decideDraft(tripId, vars.draftId, vars.decision),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.trip(tripId) }),
+  });
+}
 
 // Writes
 

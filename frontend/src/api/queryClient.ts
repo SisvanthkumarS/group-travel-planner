@@ -29,5 +29,7 @@ export const queryKeys = {
   trip: (tripId: number) => ['trips', tripId] as const,
   proposals: (tripId: number) => ['trips', tripId, 'proposals'] as const,
   itinerary: (tripId: number) => ['trips', tripId, 'itinerary'] as const,
+  chat: (tripId: number) => ['trips', tripId, 'chat'] as const,
+  chatContext: (tripId: number) => ['trips', tripId, 'chat-context'] as const,
   invitations: ['invitations'] as const,
 };
