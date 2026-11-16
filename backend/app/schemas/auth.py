@@ -4,7 +4,6 @@ from typing import Annotated
 from pydantic import (
     BaseModel,
     ConfigDict,
-    EmailStr,
     Field,
     SecretStr,
     StringConstraints,
@@ -12,7 +11,8 @@ from pydantic import (
     model_validator,
 )
 
-EmailInput = EmailStr
+from backend.app.core.email_validation import PublicEmail
+
 UserNameInput = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30)
 ]
@@ -20,7 +20,7 @@ UserNameInput = Annotated[
 
 class RegisterRequest(BaseModel):
     user_name: UserNameInput
-    email: EmailInput
+    email: PublicEmail
     # Checked in a validator for a readable message; minLength still documents it.
     password: SecretStr = Field(json_schema_extra={"minLength": 8})
 
@@ -34,7 +34,7 @@ class RegisterRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     user_name: UserNameInput | None = None
-    email: EmailInput | None = None
+    email: PublicEmail | None = None
     password: SecretStr = Field(min_length=1)
 
     @field_validator("user_name", "email", mode="before")

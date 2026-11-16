@@ -47,6 +47,19 @@ def test_auth_requires_a_nonempty_password(client, action):
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize("action", ["register", "login"])
+@pytest.mark.parametrize("email", ["user@example.invalidsuffix", "user@co.uk"])
+def test_auth_rejects_invalid_public_email_domains(client, action, email):
+    response = client.post(
+        f"/api/v1/auth/{action}",
+        json={"user_name": "KC", "email": email, "password": "example-password"},
+    )
+    assert response.status_code == 422
+    error = response.json()["detail"][0]
+    assert error["loc"] == ["body", "email"]
+    assert error["type"] == "email_domain"
+
+
 def test_register_requires_at_least_eight_characters(client):
     response = client.post(
         "/api/v1/auth/register",
@@ -71,11 +84,21 @@ def test_login_does_not_enforce_the_registration_length(client):
     assert response.status_code == 401
 
 
-def test_controller_delegates_and_sets_cookie_only_after_success(client):
+@pytest.mark.parametrize(
+    ("email", "normalized_email"),
+    [
+        (" user@example.com ", "user@example.com"),
+        ("user@MAIL.COMPANY.CO.UK", "user@mail.company.co.uk"),
+        ("user@xn--85x722f.xn--55qx5d.cn", "user@食狮.公司.cn"),
+    ],
+)
+def test_controller_delegates_and_sets_cookie_only_after_success(
+    client, email, normalized_email
+):
     user = UserResponse(
         user_id=1,
         user_name="KC",
-        email="user@example.com",
+        email=normalized_email,
         created_at=datetime.now(UTC),
     )
 
@@ -98,7 +121,7 @@ def test_controller_delegates_and_sets_cookie_only_after_success(client):
     app.dependency_overrides[get_auth_service] = FakeAuthService
     payload = {
         "user_name": "KC",
-        "email": " user@example.com ",
+        "email": email,
         "password": "example-password",
     }
     registered = client.post("/api/v1/auth/register", json=payload)
