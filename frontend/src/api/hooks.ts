@@ -1,5 +1,11 @@
 // TanStack Query hooks: one place for cache keys and invalidation rules.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import { NOTIFICATIONS_POLL_MS } from '../lib/notifications';
 import { proposalsRefetchInterval } from '../lib/proposals';
 import {
   listInvitations,
@@ -7,6 +13,14 @@ import {
   respondToInvitation,
 } from './invitations';
 import { cancelItineraryItem, getItinerary } from './itinerary';
+import {
+  getNotificationPreferences,
+  getUnreadCount,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  saveNotificationPreferences,
+} from './notifications';
 import {
   createProposal,
   listProposals,
@@ -21,6 +35,7 @@ import type {
   CreateInvitationRequest,
   CreateProposalRequest,
   CreateTripRequest,
+  NotificationPreferences,
   RespondInvitationRequest,
   Trip,
 } from './types';
@@ -137,3 +152,70 @@ export const useCancelActivity = (tripId: number) =>
   useTripMutation(tripId, (itemId: number) =>
     cancelItineraryItem(tripId, itemId),
   );
+
+// Notifications. Polling pauses while the tab is hidden (TanStack's default)
+// and refetches when the tab regains focus.
+
+export const useUnreadCount = () =>
+  useQuery({
+    queryKey: queryKeys.unreadCount,
+    queryFn: getUnreadCount,
+    refetchInterval: NOTIFICATIONS_POLL_MS,
+  });
+
+/** Each filter has its own cache entry, so switching filters starts from page one. */
+export const useNotifications = (unreadOnly: boolean) =>
+  useInfiniteQuery({
+    queryKey: queryKeys.notificationList(unreadOnly),
+    queryFn: ({ pageParam }) =>
+      listNotifications({ beforeId: pageParam, unreadOnly }),
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (page) => page.next_before_id ?? undefined,
+    refetchInterval: NOTIFICATIONS_POLL_MS,
+  });
+
+function useRefreshInbox() {
+  const qc = useQueryClient();
+  return () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: queryKeys.notificationLists }),
+      qc.invalidateQueries({ queryKey: queryKeys.unreadCount }),
+    ]);
+}
+
+export function useMarkNotificationRead() {
+  const refresh = useRefreshInbox();
+  return useMutation({
+    mutationFn: (notificationId: number) =>
+      markNotificationRead(notificationId),
+    onSuccess: refresh,
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const refresh = useRefreshInbox();
+  return useMutation({
+    mutationFn: (throughId: number | undefined) =>
+      markAllNotificationsRead(
+        throughId === undefined ? {} : { through_id: throughId },
+      ),
+    onSuccess: refresh,
+  });
+}
+
+export const useNotificationPreferences = () =>
+  useQuery({
+    queryKey: queryKeys.notificationPreferences,
+    queryFn: getNotificationPreferences,
+  });
+
+/** Shows what the server saved, not what was sent. */
+export function useSaveNotificationPreferences() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: NotificationPreferences) =>
+      saveNotificationPreferences(body),
+    onSuccess: (saved) =>
+      qc.setQueryData(queryKeys.notificationPreferences, saved),
+  });
+}
