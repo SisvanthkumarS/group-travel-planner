@@ -30,8 +30,11 @@ time. A concurrent AI request returns 409. Ordinary messages remain available
 throughout generation and when the provider is unavailable.
 
 All members can view PENDING drafts. The member who asked AI can accept or reject
-the draft. Accepted activities enter the existing Proposal workflow. For the
-provider and draft error behavior, see the sections below.
+the draft. Shared drafts include `asked_by_user_id` in history, Ask AI, and PATCH
+responses. Its value is the original question's author ID, or `null` if that
+author is unavailable. Show decision buttons for a PENDING draft when the ID
+matches the signed-in member. The server checks permission on every decision.
+Accepted activities enter the existing Proposal workflow.
 
 ## Provider configuration
 
@@ -40,13 +43,19 @@ in `docker/.env` for Docker Compose.
 
 ```dotenv
 OPENAI_API_KEY=your-api-key
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_API_MODE=responses
 OPENAI_MODEL=gpt-4o-mini
 OPENAI_TIMEOUT_SECONDS=30
 ```
 
-Only the API key is required. Use a model that supports Responses API Structured
-Outputs. After adding the SDK, rebuild the Docker backend once with
-`docker compose --env-file docker/.env -f docker/compose.dev.yml up -d --build backend`.
+For another OpenAI-compatible provider, set its API key, API root (such as
+`https://provider.example/v1`), and model ID. The SDK appends the route path.
+Use `responses` for Responses API Structured Outputs or `chat_completions`
+for a Chat Completions endpoint supporting JSON mode. Both modes validate the
+reply against the same backend schema. To apply changes in Docker, recreate
+the backend service with
+`docker compose --env-file docker/.env -f docker/compose.dev.yml up -d backend`.
 
 ## Legacy private chats
 

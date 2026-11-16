@@ -6,7 +6,7 @@ from openai import APITimeoutError, OpenAI
 from openai.types.responses import EasyInputMessageParam
 from pydantic import SecretStr
 
-from backend.app.core.config import get_settings
+from backend.app.core.config import OpenAiApiMode, get_settings
 from backend.app.schemas.AiChat import AiChatModelReply
 
 TRAVEL_ASSISTANT_INSTRUCTIONS = """
@@ -83,10 +83,20 @@ class AiChatClient(Protocol):
 
 
 class OpenAiChatClient:
-    def __init__(self, api_key: SecretStr, model: str, timeout_seconds: float):
+    def __init__(
+        self,
+        api_key: SecretStr,
+        model: str,
+        timeout_seconds: float,
+        *,
+        base_url: str,
+        api_mode: OpenAiApiMode,
+    ):
         self._api_key = api_key
         self._model = model
         self._timeout_seconds = timeout_seconds
+        self._base_url = base_url
+        self._api_mode = api_mode
 
     def generate(
         self,
@@ -109,9 +119,26 @@ class OpenAiChatClient:
         try:
             with OpenAI(
                 api_key=self._api_key.get_secret_value(),
+                base_url=self._base_url,
                 timeout=self._timeout_seconds,
                 max_retries=0,
             ) as client:
+                if self._api_mode == "chat_completions":
+                    completion = client.chat.completions.create(
+                        model=self._model,
+                        messages=[
+                            {"role": "system", "content": TRAVEL_ASSISTANT_INSTRUCTIONS},
+                            *inputs,
+                        ],
+                        response_format={"type": "json_object"},
+                    )
+                    if not completion.choices:
+                        raise ValueError("AI provider returned no reply.")
+                    choice = completion.choices[0]
+                    if choice.finish_reason != "stop" or not choice.message.content:
+                        raise ValueError("AI provider did not return a complete chat reply.")
+                    return AiChatModelReply.model_validate_json(choice.message.content)
+
                 response = client.responses.parse(
                     model=self._model,
                     instructions=TRAVEL_ASSISTANT_INSTRUCTIONS,
@@ -120,10 +147,10 @@ class OpenAiChatClient:
                     store=False,
                 )
         except APITimeoutError as exc:
-            raise TimeoutError("OpenAI request timed out.") from exc
+            raise TimeoutError("AI provider request timed out.") from exc
 
         if response.status != "completed" or response.output_parsed is None:
-            raise ValueError("OpenAI did not return a complete chat reply.")
+            raise ValueError("AI provider did not return a complete chat reply.")
         return response.output_parsed
 
 
@@ -132,4 +159,10 @@ def get_ai_chat_client() -> AiChatClient | None:
     api_key = settings.openai_api_key
     if api_key is None or not api_key.get_secret_value().strip():
         return None
-    return OpenAiChatClient(api_key, settings.openai_model, settings.openai_timeout_seconds)
+    return OpenAiChatClient(
+        api_key,
+        settings.openai_model,
+        settings.openai_timeout_seconds,
+        base_url=str(settings.openai_base_url),
+        api_mode=settings.openai_api_mode,
+    )

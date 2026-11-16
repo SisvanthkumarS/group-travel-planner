@@ -25,6 +25,7 @@ from backend.app.schemas.AiChat import (
     AiChatSendMessageRequest,
     AiChatSendMessageResponse,
     AiChatSessionResponse,
+    AiChatSharedDraftResponse,
     AiChatSharedMessagePage,
     AiChatSharedMessageResponse,
     AiChatSharedReply,
@@ -121,23 +122,34 @@ class AiChatService:
         if not messages:
             return page_type(messages=[], next_before_id=None)
 
-        drafts = self.repository.list_drafts(
-            chat_id, owner_id, [message.message_id for message in messages]
+        # A reply can finish between the message and draft reads. Attach drafts
+        # only to assistant replies already read as completed on this page.
+        completed_replies = [
+            message.message_id
+            for message in messages
+            if message.role == "ASSISTANT" and message.status == "COMPLETED"
+        ]
+        drafts = (
+            self.repository.list_drafts(chat_id, owner_id, completed_replies)
+            if completed_replies
+            else []
         )
         # A draft read as pending must not expose links from a concurrent acceptance.
         proposal_ids = self.repository.list_proposal_ids_by_draft(
             [draft.draft_id for draft in drafts if draft.status == "ACCEPTED"]
         )
+        shared = owner_id is None
+        authors = (
+            self.repository.question_authors(chat_id, [draft.message_id for draft in drafts])
+            if shared
+            else {}
+        )
         drafts_by_message = {
-            draft.message_id: AiChatDraftResponse(
-                draft_id=draft.draft_id,
-                message_id=draft.message_id,
-                kind=draft.kind,
-                proposals=draft.proposals,
-                status=draft.status,
-                created_at=draft.created_at,
-                decided_at=draft.decided_at,
-                proposal_ids=proposal_ids.get(draft.draft_id, []),
+            draft.message_id: self._draft_response(
+                draft,
+                proposal_ids.get(draft.draft_id, []),
+                shared=shared,
+                asked_by_user_id=authors.get(draft.message_id),
             )
             for draft in drafts
         }
@@ -150,6 +162,29 @@ class AiChatService:
             ],
             next_before_id=messages[-1].message_id if len(rows) > limit else None,
         )
+
+    @staticmethod
+    def _draft_response(
+        draft: AiChatDraft,
+        proposal_ids: list[int],
+        *,
+        shared: bool,
+        asked_by_user_id: int | None = None,
+    ) -> AiChatDraftResponse:
+        fields = {
+            "draft_id": draft.draft_id,
+            "message_id": draft.message_id,
+            "kind": draft.kind,
+            "proposals": draft.proposals,
+            "status": draft.status,
+            "created_at": draft.created_at,
+            "decided_at": draft.decided_at,
+            "proposal_ids": proposal_ids,
+        }
+        if shared:
+            fields["asked_by_user_id"] = asked_by_user_id
+            return AiChatSharedDraftResponse.model_validate(fields)
+        return AiChatDraftResponse.model_validate(fields)
 
     def _get_or_create_shared_chat(self, trip_id: int) -> AiChatSession:
         # The caller holds the Trip lock, including when the room does not exist yet.
@@ -207,6 +242,7 @@ class AiChatService:
                 raise HTTPException(503, detail="AI provider is not configured.")
 
             chat_id = chat.chat_id
+            trip_id = trip.trip_id
             now = datetime.now(UTC)
             history = self.repository.list_messages(
                 chat_id, chat_scope, limit=20, completed_only=shared
@@ -272,14 +308,15 @@ class AiChatService:
             ) from None
 
         try:
+            # Use the same Trip-then-chat lock order for both kinds of chat.
+            # Draft validation observes a Trip that cannot change before commit.
+            trip = self.trip_service.require_trip_member(trip_id, current_user_id, lock=True)
             if shared:
-                trip = self.trip_service.require_trip_member(target_id, current_user_id, lock=True)
-                chat = self.repository.find_shared_chat(target_id, lock=True)
+                chat = self.repository.find_shared_chat(trip_id, lock=True)
                 if chat is None or chat.chat_id != chat_id:
                     raise HTTPException(404, detail="Chat not found")
             else:
                 chat = self._lock_owned_chat(chat_id, current_user_id)
-                trip = self.trip_service.require_trip_member(chat.trip_id, current_user_id)
             assistant = self.repository.find_message(chat_id, assistant_id)
             if not self._is_generating(assistant):
                 raise HTTPException(409, detail="AI reply is no longer being generated.")
@@ -306,15 +343,8 @@ class AiChatService:
                         **reply.draft.model_dump(mode="json"),
                     )
                 )
-                draft_response = AiChatDraftResponse(
-                    draft_id=draft.draft_id,
-                    message_id=draft.message_id,
-                    kind=draft.kind,
-                    proposals=draft.proposals,
-                    status=draft.status,
-                    created_at=draft.created_at,
-                    decided_at=draft.decided_at,
-                    proposal_ids=[],
+                draft_response = self._draft_response(
+                    draft, [], shared=shared, asked_by_user_id=current_user_id
                 )
             assistant.content = reply.content
             assistant.status = "COMPLETED"
@@ -380,7 +410,7 @@ class AiChatService:
 
     def decide_shared_draft(
         self, trip_id: int, draft_id: int, body: AiChatDraftDecisionRequest, user_id: int
-    ) -> AiChatDraftResponse:
+    ) -> AiChatSharedDraftResponse:
         return self._decide_draft(trip_id, draft_id, body, user_id, shared=True)
 
     def _decide_draft(
@@ -412,14 +442,11 @@ class AiChatService:
             )
             if draft is None:
                 raise HTTPException(404, detail="Draft not found.")
+            asked_by_user_id = None
             if shared:
-                assistant = self.repository.find_message(chat.chat_id, draft.message_id)
-                question = (
-                    self.repository.find_message(chat.chat_id, assistant.reply_to_message_id)
-                    if assistant is not None and assistant.reply_to_message_id is not None
-                    else None
-                )
-                if question is None or question.user_id != current_user_id:
+                authors = self.repository.question_authors(chat.chat_id, [draft.message_id])
+                asked_by_user_id = authors.get(draft.message_id)
+                if asked_by_user_id != current_user_id:
                     raise HTTPException(
                         403, detail="Only the member who asked AI can decide this draft."
                     )
@@ -451,15 +478,8 @@ class AiChatService:
                 draft.status = target_status
                 draft.decided_at = datetime.now(UTC)
 
-            response = AiChatDraftResponse(
-                draft_id=draft.draft_id,
-                message_id=draft.message_id,
-                kind=draft.kind,
-                proposals=draft.proposals,
-                status=draft.status,
-                created_at=draft.created_at,
-                decided_at=draft.decided_at,
-                proposal_ids=proposal_ids,
+            response = self._draft_response(
+                draft, proposal_ids, shared=shared, asked_by_user_id=asked_by_user_id
             )
             self.session.commit()
             return response

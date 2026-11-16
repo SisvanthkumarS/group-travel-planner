@@ -14,6 +14,7 @@ from backend.app.schemas.AiChat import (
     AiChatSendMessageRequest,
     AiChatSendMessageResponse,
     AiChatSessionResponse,
+    AiChatSharedDraftResponse,
     AiChatSharedMessagePage,
     AiChatSharedMessageResponse,
     AiChatSharedReply,
@@ -103,7 +104,7 @@ def ask_shared_chat(
 
 @router.patch(
     "/trips/{trip_id}/chat/drafts/{draft_id}",
-    response_model=AiChatDraftResponse,
+    response_model=AiChatSharedDraftResponse,
     responses={
         409: {"description": "Draft decision conflicts or the trip proposal limit is reached."},
         422: {"description": "Invalid decision or draft proposals."},
@@ -115,7 +116,7 @@ def decide_shared_draft(
     body: AiChatDraftDecisionRequest,
     request: Request,
     service: AiChatServiceDependency,
-) -> AiChatDraftResponse:
+) -> AiChatSharedDraftResponse:
     """Accept or reject a draft as the member who asked AI."""
     return service.decide_shared_draft(trip_id, draft_id, body, request.state.current_user.user_id)
 

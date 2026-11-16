@@ -965,7 +965,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AiChatDraftResponse'
+                $ref: '#/components/schemas/AiChatSharedDraftResponse'
         '401':
           description: Authentication required.
         '403':
@@ -1766,6 +1766,68 @@ components:
       - created_at
       - updated_at
       title: AiChatSessionResponse
+    AiChatSharedDraftResponse:
+      properties:
+        kind:
+          type: string
+          enum:
+          - PROPOSAL
+          - ITINERARY
+          title: Kind
+        proposals:
+          items:
+            $ref: '#/components/schemas/CreateProposalRequest-Output'
+          type: array
+          maxItems: 100
+          minItems: 1
+          title: Proposals
+        draft_id:
+          type: integer
+          title: Draft Id
+        message_id:
+          type: integer
+          title: Message Id
+        status:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - REJECTED
+          title: Status
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        decided_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Decided At
+        proposal_ids:
+          items:
+            type: integer
+          type: array
+          title: Proposal Ids
+        asked_by_user_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Asked By User Id
+          description: Author of the original AI question, or null if no longer available.
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - proposals
+      - draft_id
+      - message_id
+      - status
+      - created_at
+      - decided_at
+      - proposal_ids
+      - asked_by_user_id
+      title: AiChatSharedDraftResponse
     AiChatSharedMessagePage:
       properties:
         messages:
@@ -1815,7 +1877,7 @@ components:
           title: Created At
         draft:
           anyOf:
-          - $ref: '#/components/schemas/AiChatDraftResponse'
+          - $ref: '#/components/schemas/AiChatSharedDraftResponse'
           - type: 'null'
         user_id:
           anyOf:

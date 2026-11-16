@@ -27,23 +27,60 @@ from backend.app.core.config import Settings
         },
     ],
 )
-def test_openai_adapter_reads_dotenv_and_parses_reply(monkeypatch, tmp_path, draft):
-    for variable in ("OPENAI_API_KEY", "OPENAI_MODEL", "OPENAI_TIMEOUT_SECONDS"):
+@pytest.mark.parametrize("mode", ["responses", "chat_completions"])
+def test_openai_adapter_reads_dotenv_and_parses_reply(
+    monkeypatch, tmp_path, draft, mode
+):
+    for variable in (
+        "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENAI_API_MODE",
+        "OPENAI_MODEL",
+        "OPENAI_TIMEOUT_SECONDS",
+    ):
         monkeypatch.delenv(variable, raising=False)
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "OPENAI_API_KEY=example-test-key\nOPENAI_MODEL=gpt-4o-mini\nOPENAI_TIMEOUT_SECONDS=12\n"
+        "OPENAI_API_KEY=example-test-key\n"
+        "OPENAI_BASE_URL=https://provider.example/custom/v1\n"
+        f"OPENAI_API_MODE={mode}\n"
+        "OPENAI_MODEL=example-model\n"
+        "OPENAI_TIMEOUT_SECONDS=12\n"
     )
     monkeypatch.setattr(
         chat_client, "get_settings", lambda: Settings(_env_file=env_file)
     )
 
     def respond(request):
-        assert request.url.path == "/v1/responses"
+        assert request.url.host == "provider.example"
         assert request.headers["Authorization"] == "Bearer example-test-key"
         assert request.extensions["timeout"]["read"] == 12
         body = json.loads(request.content)
-        assert body["model"] == "gpt-4o-mini"
+        assert body["model"] == "example-model"
+        output = json.dumps({"content": "Visit the park.", "draft": draft})
+        if mode == "chat_completions":
+            assert request.url.path == "/custom/v1/chat/completions"
+            assert body["response_format"] == {"type": "json_object"}
+            assert body["messages"][0]["role"] == "system"
+            assert "NYC" in body["messages"][1]["content"]
+            assert body["messages"][-1] == {
+                "role": "user",
+                "content": "What can we do?",
+            }
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "index": 0,
+                            "finish_reason": "stop",
+                            "message": {"role": "assistant", "content": output},
+                        },
+                    ]
+                },
+            )
+
+        assert request.url.path == "/custom/v1/responses"
         assert body["store"] is False
         assert body["text"]["format"]["strict"] is True
         assert body["input"][-1] == {"role": "user", "content": "What can we do?"}
@@ -61,9 +98,7 @@ def test_openai_adapter_reads_dotenv_and_parses_reply(monkeypatch, tmp_path, dra
                         "content": [
                             {
                                 "type": "output_text",
-                                "text": json.dumps(
-                                    {"content": "Visit the park.", "draft": draft}
-                                ),
+                                "text": output,
                                 "annotations": [],
                             }
                         ],

@@ -81,6 +81,12 @@ class AiChatDraftResponse(AiChatDraftContent):
     proposal_ids: list[int]
 
 
+class AiChatSharedDraftResponse(AiChatDraftResponse):
+    asked_by_user_id: int | None = Field(
+        description="Author of the original AI question, or null if no longer available."
+    )
+
+
 class AiChatSessionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -126,6 +132,7 @@ class AiChatMessageResponse(BaseModel):
 
 
 class AiChatSharedMessageResponse(AiChatMessageResponse):
+    draft: AiChatSharedDraftResponse | None = None
     user_id: int | None
     reply_to_message_id: int | None
 
