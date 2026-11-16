@@ -117,6 +117,7 @@ def test_disabled_email_never_connects(smtp):
         {"smtp_host": " "},
         {"email_from_address": None},
         {"email_from_address": "invalid"},
+        {"email_from_address": "notifications@example.invalidsuffix"},
         {"email_from_name": "App\r\nBcc: victim@example.com"},
         {"smtp_password": ""},
         {"smtp_username": ""},
@@ -135,6 +136,15 @@ def test_disabled_email_never_connects(smtp):
 def test_invalid_email_configuration(changes):
     with pytest.raises(ValidationError):
         email_settings(**changes)
+
+
+def test_invalid_recipient_domain_never_connects(smtp):
+    with pytest.raises(EmailDeliveryError):
+        EmailService(email_settings()).send(
+            recipient="traveler@example.invalidsuffix", subject="Test", body="Test"
+        )
+    smtp[1].assert_not_called()
+    smtp[2].assert_not_called()
 
 
 def test_tls_failure_never_sends_credentials_or_message(smtp):

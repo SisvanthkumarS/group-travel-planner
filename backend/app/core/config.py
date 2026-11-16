@@ -2,8 +2,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import EmailStr, Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from backend.app.core.email_validation import PublicEmail
 
 
 class Settings(BaseSettings):
@@ -47,7 +49,7 @@ class Settings(BaseSettings):
     smtp_encryption: Literal["starttls", "ssl", "none"] = "starttls"
     smtp_username: str = ""
     smtp_password: SecretStr = SecretStr("")
-    email_from_address: EmailStr | None = None
+    email_from_address: PublicEmail | None = None
     email_from_name: str = Field(default="Group Travel Planner", pattern=r"^[^\r\n]*$")
 
     @model_validator(mode="after")

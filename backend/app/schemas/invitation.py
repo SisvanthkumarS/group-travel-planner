@@ -1,14 +1,15 @@
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from backend.app.core.email_validation import PublicEmail
 from backend.app.schemas.auth import UserNameInput
 
 
 class CreateInvitationRequest(BaseModel):
     # The recipient must already have an account; this is not an email delivery API.
-    email: EmailStr | None = None
+    email: PublicEmail | None = None
     user_name: UserNameInput | None = None
 
     @field_validator("email", "user_name", mode="before")

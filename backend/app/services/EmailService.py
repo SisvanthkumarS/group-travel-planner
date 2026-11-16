@@ -7,11 +7,13 @@ from datetime import UTC, datetime
 from email.message import EmailMessage
 from email.utils import format_datetime, formataddr, make_msgid
 
-from pydantic import EmailStr, TypeAdapter
+from pydantic import TypeAdapter
 
 from backend.app.core.config import Settings
+from backend.app.core.email_validation import PublicEmail
 
 logger = logging.getLogger(__name__)
+recipient_email_adapter = TypeAdapter(PublicEmail)
 
 
 class EmailDisabledError(Exception):
@@ -33,7 +35,7 @@ class EmailService:
             raise EmailDisabledError("Email sending is disabled.")
 
         try:
-            recipient = str(TypeAdapter(EmailStr).validate_python(recipient))
+            recipient = recipient_email_adapter.validate_python(recipient)
             sender = str(settings.email_from_address)
             message = EmailMessage()
             message["From"] = formataddr((settings.email_from_name, sender))

@@ -57,6 +57,11 @@ def test_invitation_routes_require_authentication(client, method, path, body):
     [
         ("POST", "/api/v1/trips/0/invitations", {"email": "friend@example.com"}),
         ("POST", "/api/v1/trips/12/invitations", {"email": "invalid"}),
+        (
+            "POST",
+            "/api/v1/trips/12/invitations",
+            {"email": "friend@example.invalidsuffix"},
+        ),
         ("POST", "/api/v1/trips/12/invitations", {}),
         ("POST", "/api/v1/trips/12/invitations", {"email": None, "user_name": " "}),
         ("POST", "/api/v1/trips/12/invitations", {"email": " ", "user_name": ""}),
