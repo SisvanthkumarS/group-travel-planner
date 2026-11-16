@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, select
+from sqlalchemy.orm import Session, aliased
 
 from backend.app.models.AiChat import (
     AiChatDraft,
@@ -120,6 +120,30 @@ class AiChatRepository:
                 populate_existing=True
             )
         return self.session.scalar(statement)
+
+    def question_authors(
+        self, chat_id: int, assistant_message_ids: Sequence[int]
+    ) -> dict[int, int | None]:
+        if not assistant_message_ids:
+            return {}
+        question = aliased(AiChatMessage)
+        statement = (
+            select(AiChatMessage.message_id, question.user_id)
+            .join(
+                question,
+                and_(
+                    question.message_id == AiChatMessage.reply_to_message_id,
+                    question.chat_id == AiChatMessage.chat_id,
+                    question.role == "USER",
+                ),
+            )
+            .where(
+                AiChatMessage.chat_id == chat_id,
+                AiChatMessage.role == "ASSISTANT",
+                AiChatMessage.message_id.in_(assistant_message_ids),
+            )
+        )
+        return {message_id: user_id for message_id, user_id in self.session.execute(statement)}
 
     def add_proposal_links(self, draft_id: int, proposal_ids: Sequence[int]) -> None:
         self.session.add_all(
