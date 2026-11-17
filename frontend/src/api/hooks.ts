@@ -16,13 +16,20 @@ import {
   withdrawProposal,
 } from './proposals';
 import { queryKeys } from './queryClient';
-import { createTrip, deleteTrip, getTrip, listTrips } from './trips';
+import {
+  createTrip,
+  deleteTrip,
+  getTrip,
+  listTrips,
+  updateTrip,
+} from './trips';
 import type {
   CreateInvitationRequest,
   CreateProposalRequest,
   CreateTripRequest,
   RespondInvitationRequest,
   Trip,
+  UpdateTripRequest,
 } from './types';
 
 // Reads
@@ -58,6 +65,15 @@ export function useCreateTrip() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: CreateTripRequest) => createTrip(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.trips }),
+  });
+}
+
+/** Refreshes the trip list and this trip (its header, proposals and itinerary). */
+export function useUpdateTrip(tripId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateTripRequest) => updateTrip(tripId, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.trips }),
   });
 }
