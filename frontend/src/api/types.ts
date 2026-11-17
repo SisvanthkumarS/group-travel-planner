@@ -29,3 +29,12 @@ export type VoteRequest = Schemas['VoteRequest'];
 export type ResolvePollRequest = Schemas['ResolvePollRequest'];
 
 export type ItineraryItem = Schemas['ItineraryItemResponse'];
+
+// Named AppNotification so it doesn't shadow the browser's Notification type.
+export type AppNotification = Schemas['NotificationResponse'];
+export type NotificationEventType = AppNotification['event_type'];
+export type NotificationPage = Schemas['NotificationPage'];
+export type NotificationPreferences = Schemas['NotificationPreferences'];
+export type MarkAllReadRequest = Schemas['MarkAllReadRequest'];
+export type MarkAllReadResponse = Schemas['MarkAllReadResponse'];
+export type UnreadCount = Schemas['UnreadCountResponse'];

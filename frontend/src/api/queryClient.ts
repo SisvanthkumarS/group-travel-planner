@@ -30,4 +30,11 @@ export const queryKeys = {
   proposals: (tripId: number) => ['trips', tripId, 'proposals'] as const,
   itinerary: (tripId: number) => ['trips', tripId, 'itinerary'] as const,
   invitations: ['invitations'] as const,
+  // Cleared with everything else on sign-out (queryClient.clear()).
+  notifications: ['notifications'] as const,
+  notificationList: (unreadOnly: boolean) =>
+    ['notifications', 'list', unreadOnly ? 'unread' : 'all'] as const,
+  notificationLists: ['notifications', 'list'] as const,
+  unreadCount: ['notifications', 'unread-count'] as const,
+  notificationPreferences: ['notifications', 'preferences'] as const,
 };
