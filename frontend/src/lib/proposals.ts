@@ -1,5 +1,6 @@
 // Pure rules for showing proposals. The backend decides outcomes; this only
 // sorts, groups and works out what the current user can do.
+import { LIVE_REFRESH_MS } from './live';
 import type { Poll, Proposal, ProposalStatus } from '../api/types';
 
 export type Viewer = { userId: number; isOrganizer: boolean };
@@ -133,18 +134,19 @@ export function resultLine(proposal: Proposal): string {
 }
 
 /**
- * How often to refetch proposals: quickly while any poll is open, and right
- * after the next deadline so closed results appear without a reload. The
- * backend closes polls on a ~5 s scheduler, so wait a few seconds past it.
+ * How often to refetch proposals: every LIVE_REFRESH_MS so other members'
+ * changes show up, and sooner right after a poll deadline so closed results
+ * appear quickly. The backend closes polls on a ~5 s scheduler, so wait a few
+ * seconds past it.
  */
 export function proposalsRefetchInterval(
   proposals: Proposal[] | undefined,
   now: number = Date.now(),
-): number | false {
+): number {
   const deadlines = (proposals ?? [])
     .filter((p) => p.status === 'OPEN' && p.poll?.status === 'OPEN')
     .map((p) => new Date(p.poll!.deadline).getTime());
-  if (deadlines.length === 0) return false;
+  if (deadlines.length === 0) return LIVE_REFRESH_MS;
   const next = Math.min(...deadlines) - now + 7_000;
-  return Math.max(3_000, Math.min(next, 20_000));
+  return Math.max(3_000, Math.min(next, LIVE_REFRESH_MS));
 }

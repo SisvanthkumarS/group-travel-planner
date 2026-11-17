@@ -369,7 +369,7 @@ function AiContextCard() {
       <h2 id="ai-context-title" className="card__title">
         What AI knows
       </h2>
-      {context.error ? (
+      {context.error && context.data === undefined ? (
         <QueryError error={context.error} onRetry={() => context.refetch()} />
       ) : !context.data ? (
         <p className="small muted" role="status">

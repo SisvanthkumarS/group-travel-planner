@@ -78,7 +78,9 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
 
 function Invitations() {
   const { data, error, refetch } = useInvitations();
-  if (error) return <QueryError error={error} onRetry={() => refetch()} />;
+  // A failed background refresh keeps the last list on screen.
+  if (error && data === undefined)
+    return <QueryError error={error} onRetry={() => refetch()} />;
   const pending = (data ?? []).filter((i) => i.status === 'PENDING');
   if (pending.length === 0) return null;
 
@@ -145,12 +147,14 @@ export function TripsPage() {
 
       <Invitations />
 
-      {trips.error ? (
-        <QueryError error={trips.error} onRetry={() => trips.refetch()} />
-      ) : trips.isPending ? (
-        <p className="muted" role="status">
-          Loading trips…
-        </p>
+      {trips.data === undefined ? (
+        trips.error ? (
+          <QueryError error={trips.error} onRetry={() => trips.refetch()} />
+        ) : (
+          <p className="muted" role="status">
+            Loading trips…
+          </p>
+        )
       ) : trips.data.length === 0 ? (
         <div className="empty">
           <p>

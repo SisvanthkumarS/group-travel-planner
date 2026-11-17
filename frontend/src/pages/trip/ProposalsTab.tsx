@@ -189,7 +189,7 @@ export function ProposalsTab() {
   return (
     <div className="trip-body">
       <section className="trip-main">
-        {proposals.error ? (
+        {proposals.error && proposals.data === undefined ? (
           <QueryError
             error={proposals.error}
             onRetry={() => proposals.refetch()}
