@@ -6,6 +6,7 @@ import { NotificationsPage } from './pages/NotificationsPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SignInPage } from './pages/SignInPage';
 import { TripsPage } from './pages/TripsPage';
+import { ChatTab } from './pages/trip/ChatTab';
 import { ItineraryTab } from './pages/trip/ItineraryTab';
 import { ProposalsTab } from './pages/trip/ProposalsTab';
 import { TripLayout } from './pages/trip/TripLayout';
@@ -25,6 +26,7 @@ export function App() {
           <Route path="/trips/:tripId" element={<TripLayout />}>
             <Route index element={<ProposalsTab />} />
             <Route path="itinerary" element={<ItineraryTab />} />
+            <Route path="chat" element={<ChatTab />} />
           </Route>
         </Route>
       </Route>

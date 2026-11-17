@@ -184,6 +184,9 @@ export function TripLayout() {
           Itinerary{' '}
           <span className="tabs__count">{itinerary.data?.length ?? '–'}</span>
         </NavLink>
+        <NavLink to={`/trips/${tripId}/chat`} className="tabs__tab">
+          Chat
+        </NavLink>
       </nav>
 
       <Outlet context={context} />

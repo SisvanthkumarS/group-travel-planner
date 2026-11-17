@@ -18,6 +18,15 @@ export type Invitation = Schemas['InvitationResponse'];
 export type CreateInvitationRequest = Schemas['CreateInvitationRequest'];
 export type RespondInvitationRequest = Schemas['RespondInvitationRequest'];
 
+// Shared trip chat (the private /chats routes are deprecated and not used).
+export type ChatMessage = Schemas['AiChatSharedMessageResponse'];
+export type ChatMessagePage = Schemas['AiChatSharedMessagePage'];
+export type ChatDraft = Schemas['AiChatSharedDraftResponse'];
+export type ChatDraftProposal = Schemas['CreateProposalRequest-Output'];
+export type ChatReply = Schemas['AiChatSharedReply'];
+export type ChatContext = Schemas['AiChatContextResponse'];
+export type DraftDecision = Schemas['AiChatDraftDecisionRequest']['decision'];
+
 export type Proposal = Schemas['ProposalResponse'];
 export type ProposalStatus = Proposal['status'];
 export type CreateProposalRequest = Schemas['CreateProposalRequest-Input'];
