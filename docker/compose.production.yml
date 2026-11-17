@@ -80,7 +80,7 @@ services:
       SMTP_ENCRYPTION: ${SMTP_ENCRYPTION:-starttls}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      CORS_ORIGINS: '["http://localhost:3000"]'
+      CORS_ORIGINS: '["https://localhost:3000"]'
     volumes:
       - ./certs:/opt/app/certs:ro
     ports:

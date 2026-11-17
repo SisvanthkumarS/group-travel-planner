@@ -71,7 +71,7 @@ a:hover {
 }
 .btn:disabled {
   opacity: 0.6;
-  cursor: progress;
+  cursor: default;
 }
 .btn--primary {
   background: var(--accent);
