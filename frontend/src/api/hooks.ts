@@ -5,6 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { LIVE_REFRESH_MS, tripIsGone } from '../lib/live';
 import { NOTIFICATIONS_POLL_MS } from '../lib/notifications';
 import { proposalsRefetchInterval } from '../lib/proposals';
 import {
@@ -29,7 +30,6 @@ import {
   vote,
   withdrawProposal,
 } from './proposals';
-import { useInfiniteQuery as useChatPages } from '@tanstack/react-query';
 import { CHAT_POLL_MS } from '../lib/chat';
 import {
   askAi,
@@ -59,12 +59,19 @@ import type {
 // Reads
 
 export const useTrips = () =>
-  useQuery({ queryKey: queryKeys.trips, queryFn: listTrips });
+  useQuery({
+    queryKey: queryKeys.trips,
+    queryFn: listTrips,
+    refetchInterval: LIVE_REFRESH_MS,
+  });
 
 export const useTrip = (tripId: number) =>
   useQuery({
     queryKey: queryKeys.trip(tripId),
     queryFn: () => getTrip(tripId),
+    // Stop checking once the trip is deleted or the viewer was removed.
+    refetchInterval: (query) =>
+      tripIsGone(query.state.error) ? false : LIVE_REFRESH_MS,
   });
 
 export const useProposals = (tripId: number) =>
@@ -78,16 +85,21 @@ export const useItinerary = (tripId: number) =>
   useQuery({
     queryKey: queryKeys.itinerary(tripId),
     queryFn: () => getItinerary(tripId),
+    refetchInterval: LIVE_REFRESH_MS,
   });
 
 export const useInvitations = () =>
-  useQuery({ queryKey: queryKeys.invitations, queryFn: listInvitations });
+  useQuery({
+    queryKey: queryKeys.invitations,
+    queryFn: listInvitations,
+    refetchInterval: LIVE_REFRESH_MS,
+  });
 
 // Shared trip chat. Polls while the chat tab is mounted (and the browser tab
 // is visible), so other members' messages and AI progress show up on their own.
 
 export const useChatMessages = (tripId: number) =>
-  useChatPages({
+  useInfiniteQuery({
     queryKey: queryKeys.chat(tripId),
     queryFn: ({ pageParam }) => listChatMessages(tripId, pageParam),
     initialPageParam: undefined as number | undefined,
@@ -99,6 +111,7 @@ export const useChatContext = (tripId: number) =>
   useQuery({
     queryKey: queryKeys.chatContext(tripId),
     queryFn: () => getChatContext(tripId),
+    refetchInterval: LIVE_REFRESH_MS,
   });
 
 export function useSendChatMessage(tripId: number) {

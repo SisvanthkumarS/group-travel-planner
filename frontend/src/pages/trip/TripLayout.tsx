@@ -1,3 +1,4 @@
+import { tripIsGone } from '../../lib/live';
 import { useMemo, useState } from 'react';
 import {
   Link,
@@ -81,7 +82,9 @@ export function TripLayout() {
     };
   }, [trip.data, user]);
 
-  if (trip.error) return <TripUnavailable error={trip.error} />;
+  // Keep showing the trip through a failed refresh, unless it's really gone.
+  if (trip.error && (!trip.data || tripIsGone(trip.error)))
+    return <TripUnavailable error={trip.error} />;
   if (!context) {
     return (
       <main className="page">

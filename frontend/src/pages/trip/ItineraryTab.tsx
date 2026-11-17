@@ -57,12 +57,11 @@ export function ItineraryTab() {
   const [cancelling, setCancelling] = useState<ItineraryItem | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
-  if (itinerary.error)
-    return (
+  // A failed background refresh keeps the last itinerary on screen.
+  if (itinerary.data === undefined)
+    return itinerary.error ? (
       <QueryError error={itinerary.error} onRetry={() => itinerary.refetch()} />
-    );
-  if (itinerary.isPending)
-    return (
+    ) : (
       <p className="muted" role="status">
         Loading itinerary…
       </p>

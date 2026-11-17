@@ -233,22 +233,27 @@ describe('grouping (US-13)', () => {
 });
 
 describe('refetching around poll deadlines (US-10a)', () => {
-  it('does not poll when nothing is open', () => {
-    expect(proposalsRefetchInterval([proposal()], NOW)).toBe(false);
-    expect(proposalsRefetchInterval(undefined, NOW)).toBe(false);
+  it('keeps refreshing at the live rate when no poll is open', () => {
+    expect(proposalsRefetchInterval([proposal()], NOW)).toBe(10_000);
+    expect(proposalsRefetchInterval(undefined, NOW)).toBe(10_000);
   });
 
   it('refetches shortly after the next deadline, within bounds', () => {
     const soon = proposal({
       status: 'OPEN',
-      poll: poll({ deadline: new Date(NOW + 5_000).toISOString() }),
+      poll: poll({ deadline: new Date(NOW + 1_000).toISOString() }),
     });
-    expect(proposalsRefetchInterval([soon], NOW)).toBe(12_000);
+    expect(proposalsRefetchInterval([soon], NOW)).toBe(8_000);
+    const passed = proposal({
+      status: 'OPEN',
+      poll: poll({ deadline: new Date(NOW - 60_000).toISOString() }),
+    });
+    expect(proposalsRefetchInterval([passed], NOW)).toBe(3_000);
     const far = proposal({
       status: 'OPEN',
       poll: poll({ deadline: new Date(NOW + 86_400_000).toISOString() }),
     });
-    expect(proposalsRefetchInterval([far], NOW)).toBe(20_000);
+    expect(proposalsRefetchInterval([far], NOW)).toBe(10_000);
   });
 });
 
