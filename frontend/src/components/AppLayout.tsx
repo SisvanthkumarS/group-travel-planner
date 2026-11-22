@@ -2,6 +2,7 @@ import { Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { initials } from '../auth/session';
 import { BrandMark } from './BrandMark';
+import { NotificationBell } from './NotificationBell';
 
 /** Header and page frame for every signed-in screen. */
 export function AppLayout() {
@@ -17,6 +18,7 @@ export function AppLayout() {
           </Link>
           {user && (
             <div className="app-header__user">
+              <NotificationBell />
               <span className="avatar" aria-hidden="true">
                 {initials(user.user_name)}
               </span>

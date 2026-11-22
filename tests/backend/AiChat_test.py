@@ -290,6 +290,31 @@ def test_list_messages_returns_empty_page(client, mock_session):
     assert response.json() == {"messages": [], "next_before_id": None}
 
 
+def test_history_does_not_load_a_draft_for_a_reply_still_generating(
+    client, mock_session
+):
+    client.cookies.set("access_token", security.create_access_token(7))
+    mock_session.scalar.side_effect = [
+        AiChatSession(chat_id=20, trip_id=12, user_id=7),
+        TripMember(trip_id=12, user_id=7, role="MEMBER"),
+    ]
+    mock_session.scalars.return_value = [
+        AiChatMessage(
+            message_id=103,
+            chat_id=20,
+            role="ASSISTANT",
+            status="GENERATING",
+            content="",
+            created_at=datetime.now(UTC),
+        )
+    ]
+    response = client.get("/api/v1/chats/20/messages")
+    assert response.status_code == 200
+    message = response.json()["messages"][0]
+    assert (message["status"], message["draft"]) == ("GENERATING", None)
+    mock_session.scalars.assert_called_once()
+
+
 @pytest.mark.parametrize(("owns_chat", "expected"), [(False, 404), (True, 403)])
 def test_list_messages_denies_access_before_reading_history(
     client, mock_session, owns_chat, expected
@@ -319,6 +344,8 @@ def send_state(monkeypatch, mock_session):
             return 0
         if model is AiChatSession:
             return chat
+        if model is Trip:
+            return trip
         if model is TripMember:
             return member
         return saved[1]  # The assistant placeholder looked up after generation.
@@ -1067,6 +1094,7 @@ def _exercise_shared_chat(
     assert reply.reply_to_message_id == result.user_message.message_id
     draft = reply.draft
     assert draft is not None and draft.status == "PENDING"
+    assert draft.asked_by_user_id == member_id
     history = organizer.list_shared_messages(
         trip_id, organizer_id, before_id=None, limit=30
     )
@@ -1076,6 +1104,12 @@ def _exercise_shared_chat(
         result.user_message.content,
         prior.content,
     ]
+    # The original question is on a different page.
+    reply_page = organizer.list_shared_messages(
+        trip_id, organizer_id, before_id=history.messages[0].message_id, limit=1
+    )
+    assert [message.message_id for message in reply_page.messages] == [reply.message_id]
+    assert reply_page.messages[0].draft == draft
     decision = AiChatDraftDecisionRequest(decision="ACCEPT")
     with pytest.raises(HTTPException) as forbidden:
         organizer.decide_shared_draft(trip_id, draft.draft_id, decision, organizer_id)
@@ -1085,6 +1119,11 @@ def _exercise_shared_chat(
     )
     assert accepted.status == "ACCEPTED"
     assert len(accepted.proposal_ids) == 2
+    assert accepted.asked_by_user_id == member_id
+    updated_page = organizer.list_shared_messages(
+        trip_id, organizer_id, before_id=history.messages[0].message_id, limit=1
+    )
+    assert updated_page.messages[0].draft == accepted
     with pytest.raises(HTTPException) as nonmember:
         organizer.list_shared_messages(trip_id, 0, before_id=None, limit=30)
     assert nonmember.value.status_code == 403

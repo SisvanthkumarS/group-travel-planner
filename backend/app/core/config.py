@@ -2,10 +2,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, HttpUrl, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from backend.app.core.email_validation import PublicEmail
+
+OpenAiApiMode = Literal["responses", "chat_completions"]
 
 
 class Settings(BaseSettings):
@@ -33,6 +35,8 @@ class Settings(BaseSettings):
     poll_scheduler_interval_seconds: float = Field(default=5, gt=0)
     cors_origins: list[str] = ["http://localhost:5173"]
     openai_api_key: SecretStr | None = None
+    openai_base_url: HttpUrl = HttpUrl("https://api.openai.com/v1")
+    openai_api_mode: OpenAiApiMode = "responses"
     openai_model: str = "gpt-4o-mini"
     openai_timeout_seconds: float = Field(default=30, gt=0)
     email_enabled: bool = False

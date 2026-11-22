@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useProposals } from '../../api/hooks';
 import type { Proposal } from '../../api/types';
 import {
@@ -175,10 +176,20 @@ export function ProposalsTab() {
   const list = proposals.data ?? [];
   const active = activeProposals(list);
 
+  // A notification link like /trips/3#proposal-9 lands on that proposal.
+  const { hash } = useLocation();
+  const loaded = proposals.data !== undefined;
+  useEffect(() => {
+    if (!loaded || !hash.startsWith('#proposal-')) return;
+    document
+      .getElementById(hash.slice(1))
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [hash, loaded]);
+
   return (
     <div className="trip-body">
       <section className="trip-main">
-        {proposals.error ? (
+        {proposals.error && proposals.data === undefined ? (
           <QueryError
             error={proposals.error}
             onRetry={() => proposals.refetch()}

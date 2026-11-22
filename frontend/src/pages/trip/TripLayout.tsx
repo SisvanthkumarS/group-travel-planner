@@ -1,3 +1,4 @@
+import { tripIsGone } from '../../lib/live';
 import { useMemo, useState } from 'react';
 import {
   Link,
@@ -18,6 +19,7 @@ import { Avatar, BackIcon, PlusIcon, QueryError } from '../../components/bits';
 import { ConfirmDialog } from '../../components/Modal';
 import { tripDates, zoneLabel } from '../../lib/format';
 import type { TripContext } from './context';
+import { EditTripModal } from './EditTripModal';
 import { InviteModal } from './InviteModal';
 
 const MAX_TRAVELERS = 8;
@@ -56,6 +58,7 @@ export function TripLayout() {
   const itinerary = useItinerary(tripId);
   const deleteTrip = useDeleteTrip();
   const [inviting, setInviting] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -79,7 +82,9 @@ export function TripLayout() {
     };
   }, [trip.data, user]);
 
-  if (trip.error) return <TripUnavailable error={trip.error} />;
+  // Keep showing the trip through a failed refresh, unless it's really gone.
+  if (trip.error && (!trip.data || tripIsGone(trip.error)))
+    return <TripUnavailable error={trip.error} />;
   if (!context) {
     return (
       <main className="page">
@@ -157,6 +162,13 @@ export function TripLayout() {
             </button>
             <button
               type="button"
+              className="btn btn--ghost-light"
+              onClick={() => setEditing(true)}
+            >
+              Edit trip
+            </button>
+            <button
+              type="button"
               className="btn btn--ghost-danger"
               onClick={() => setConfirmDelete(true)}
             >
@@ -175,6 +187,9 @@ export function TripLayout() {
           Itinerary{' '}
           <span className="tabs__count">{itinerary.data?.length ?? '–'}</span>
         </NavLink>
+        <NavLink to={`/trips/${tripId}/chat`} className="tabs__tab">
+          Chat
+        </NavLink>
       </nav>
 
       <Outlet context={context} />
@@ -186,6 +201,7 @@ export function TripLayout() {
           onClose={() => setInviting(false)}
         />
       )}
+      {editing && <EditTripModal trip={t} onClose={() => setEditing(false)} />}
       {confirmDelete && (
         <ConfirmDialog
           title="Delete this trip?"
