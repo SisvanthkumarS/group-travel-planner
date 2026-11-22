@@ -2,7 +2,9 @@ include:
   - ./compose.base.yml
 services:
   backend:
-    image: astral/uv:0.13.5-debian-slim
+    build:
+      context: ..
+      dockerfile: docker/backend.dockerfile
     working_dir: /opt/app
     environment:
       APP_NAME: ${APP_NAME}
@@ -39,7 +41,6 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       CORS_ORIGINS: '["http://localhost:5173"]'
-    command: ['sleep', 'infinity']
     ports:
       - '8000:8000'
     volumes:
@@ -49,6 +50,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/openapi.json', timeout=3)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
 
   frontend:
     image: node:26-alpine
@@ -74,7 +87,7 @@ services:
       - frontend_workspace_modules:/opt/app/frontend/node_modules
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   frontend_modules:

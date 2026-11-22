@@ -57,6 +57,12 @@ reply against the same backend schema. To apply changes in Docker, recreate
 the backend service with
 `docker compose --env-file docker/.env -f docker/compose.dev.yml up -d backend`.
 
+In Chat Completions mode, earlier assistant messages are wrapped in the reply's
+JSON format when building model history. If a completed model answer contains
+blank, malformed, or schema-invalid JSON, the adapter retries once with clearer
+formatting instructions within the original timeout budget. A second invalid
+answer follows the existing 502 failure path.
+
 ## Legacy private chats
 
 The following routes are deprecated. Existing private conversations stay

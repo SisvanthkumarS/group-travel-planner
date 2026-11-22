@@ -170,6 +170,12 @@ pnpm run dev:backend
 pnpm run dev:frontend
 ```
 
+For Docker development, run:
+
+```sh
+pnpm run dev
+```
+
 The backend image is built on first use; rebuild it after dependency changes.
 This starts PostgreSQL and Redis, runs Alembic migrations once the database is
 healthy, then starts FastAPI and Vite with hot reload. Open the frontend at
@@ -203,10 +209,9 @@ values if the file already exists. The base configuration starts PostgreSQL and
 Redis; the current FastAPI activity workflow does not require Redis.
 
 `pnpm run dev` uses `docker/compose.dev.yml` and `docker/.env` to start the
-development containers in the background. **Its backend command is currently
-`sleep infinity`: it does not start FastAPI or run migrations.** Use the host
-commands above for the API. The Docker frontend already occupies port 5173, so
-do not also start a host frontend on that port. Stop the development containers
+development containers in the background. The backend runs migrations and starts
+FastAPI automatically. The frontend waits for the API health check to pass.
+The Docker frontend occupies port 5173. Stop the development containers
 with `docker compose --env-file docker/.env -f docker/compose.dev.yml down`;
 volumes persist unless explicitly removed.
 
