@@ -6,7 +6,7 @@ from openai import APITimeoutError, OpenAI
 from openai.types.responses import EasyInputMessageParam
 from pydantic import SecretStr
 
-from backend.app.core.config import OpenAiApiMode, get_settings
+from backend.app.core.config import DEFAULT_OPENAI_MODEL, OpenAiApiMode, get_settings
 from backend.app.schemas.AiChat import AiChatModelReply
 
 TRAVEL_ASSISTANT_INSTRUCTIONS = """
@@ -139,13 +139,33 @@ class OpenAiChatClient:
                         raise ValueError("AI provider did not return a complete chat reply.")
                     return AiChatModelReply.model_validate_json(choice.message.content)
 
-                response = client.responses.parse(
-                    model=self._model,
-                    instructions=TRAVEL_ASSISTANT_INSTRUCTIONS,
-                    input=inputs,
-                    text_format=AiChatModelReply,
-                    store=False,
-                )
+                if self._model == DEFAULT_OPENAI_MODEL:
+                    with client.responses.stream(
+                        model=self._model,
+                        service_tier="flex",
+                        instructions=TRAVEL_ASSISTANT_INSTRUCTIONS,
+                        input=inputs,
+                        text_format=AiChatModelReply,
+                        text={"verbosity": "low"},
+                        reasoning={"effort": "none", "mode": "standard", "summary": "auto"},
+                        tools=[],
+                        store=True,
+                        include=["reasoning.encrypted_content", "web_search_call.action.sources"],
+                    ) as stream:
+                        for event in stream:
+                            if event.type == "error":
+                                raise RuntimeError(event.message)
+                            if event.type == "response.failed":
+                                raise RuntimeError(event.response.error)
+                        response = stream.get_final_response()
+                else:
+                    response = client.responses.parse(
+                        model=self._model,
+                        instructions=TRAVEL_ASSISTANT_INSTRUCTIONS,
+                        input=inputs,
+                        text_format=AiChatModelReply,
+                        store=False,
+                    )
         except APITimeoutError as exc:
             raise TimeoutError("AI provider request timed out.") from exc
 
