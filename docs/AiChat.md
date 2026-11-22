@@ -45,9 +45,13 @@ in `docker/.env` for Docker Compose.
 OPENAI_API_KEY=your-api-key
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_API_MODE=responses
-OPENAI_MODEL=gpt-4o-mini
+OPENAI_MODEL=gpt-6-luna
 OPENAI_TIMEOUT_SECONDS=30
 ```
+
+With GPT-6 Luna in Responses mode, the backend uses OpenAI Flex processing and
+validates the completed streamed reply before returning it to the app. The
+request enables OpenAI response storage with `store=true`.
 
 For another OpenAI-compatible provider, set its API key, API root (such as
 `https://provider.example/v1`), and model ID. The SDK appends the route path.

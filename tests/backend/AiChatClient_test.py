@@ -29,9 +29,16 @@ from backend.app.core.config import Settings
         },
     ],
 )
-@pytest.mark.parametrize("mode", ["responses", "chat_completions"])
+@pytest.mark.parametrize(
+    ("mode", "model_override"),
+    [
+        ("responses", None),
+        ("responses", "example-model"),
+        ("chat_completions", "example-model"),
+    ],
+)
 def test_openai_adapter_reads_dotenv_and_parses_reply(
-    monkeypatch, tmp_path, draft, mode
+    monkeypatch, tmp_path, draft, mode, model_override
 ):
     for variable in (
         "OPENAI_API_KEY",
@@ -46,8 +53,8 @@ def test_openai_adapter_reads_dotenv_and_parses_reply(
         "OPENAI_API_KEY=example-test-key\n"
         "OPENAI_BASE_URL=https://provider.example/custom/v1\n"
         f"OPENAI_API_MODE={mode}\n"
-        "OPENAI_MODEL=example-model\n"
         "OPENAI_TIMEOUT_SECONDS=12\n"
+        + (f"OPENAI_MODEL={model_override}\n" if model_override else "")
     )
     monkeypatch.setattr(
         chat_client, "get_settings", lambda: Settings(_env_file=env_file)
@@ -58,7 +65,7 @@ def test_openai_adapter_reads_dotenv_and_parses_reply(
         assert request.headers["Authorization"] == "Bearer example-test-key"
         assert 0 < request.extensions["timeout"]["read"] <= 12
         body = json.loads(request.content)
-        assert body["model"] == "example-model"
+        assert body["model"] == (model_override or "gpt-6-luna")
         output = json.dumps({"content": "Visit the park.", "draft": draft})
         if mode == "chat_completions":
             assert request.url.path == "/custom/v1/chat/completions"
@@ -87,30 +94,53 @@ def test_openai_adapter_reads_dotenv_and_parses_reply(
             )
 
         assert request.url.path == "/custom/v1/responses"
-        assert body["store"] is False
         assert body["text"]["format"]["strict"] is True
         assert body["input"][-1] == {"role": "user", "content": "What can we do?"}
         assert "NYC" in body["input"][0]["content"]
+        response = {
+            "status": "completed",
+            "output": [
+                {
+                    "id": "msg_test",
+                    "type": "message",
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [
+                        {"type": "output_text", "text": output, "annotations": []}
+                    ],
+                }
+            ],
+        }
+        if model_override:
+            assert body["store"] is False
+            return httpx.Response(200, json=response)
+
+        assert body["stream"] is True
+        assert body["store"] is True
+        assert body["service_tier"] == "flex"
+        assert body["text"]["verbosity"] == "low"
+        assert body["reasoning"] == {
+            "effort": "none",
+            "mode": "standard",
+            "summary": "auto",
+        }
+        assert body["tools"] == []
+        assert body["include"] == [
+            "reasoning.encrypted_content",
+            "web_search_call.action.sources",
+        ]
+        events = [
+            {
+                "type": "response.created",
+                "sequence_number": 0,
+                "response": {"status": "in_progress", "output": []},
+            },
+            {"type": "response.completed", "sequence_number": 1, "response": response},
+        ]
         return httpx.Response(
             200,
-            json={
-                "status": "completed",
-                "output": [
-                    {
-                        "id": "msg_test",
-                        "type": "message",
-                        "role": "assistant",
-                        "status": "completed",
-                        "content": [
-                            {
-                                "type": "output_text",
-                                "text": output,
-                                "annotations": [],
-                            }
-                        ],
-                    }
-                ],
-            },
+            headers={"Content-Type": "text/event-stream"},
+            text="".join(f"data: {json.dumps(event)}\n\n" for event in events),
         )
 
     monkeypatch.setattr(

@@ -22,7 +22,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
       OPENAI_API_MODE: ${OPENAI_API_MODE:-responses}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-luna}
       OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-30}
       EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
       EMAIL_TEST_ENABLED: ${EMAIL_TEST_ENABLED:-false}

@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from backend.app.core.email_validation import PublicEmail
 
 OpenAiApiMode = Literal["responses", "chat_completions"]
+DEFAULT_OPENAI_MODEL = "gpt-6-luna"
 
 
 class Settings(BaseSettings):
@@ -37,7 +38,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_base_url: HttpUrl = HttpUrl("https://api.openai.com/v1")
     openai_api_mode: OpenAiApiMode = "responses"
-    openai_model: str = "gpt-4o-mini"
+    openai_model: str = DEFAULT_OPENAI_MODEL
     openai_timeout_seconds: float = Field(default=30, gt=0)
     email_enabled: bool = False
     email_test_enabled: bool = False
