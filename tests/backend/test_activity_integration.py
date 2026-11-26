@@ -265,6 +265,25 @@ def expire(s, poll_id):
         session.commit()
 
 
+@pytest.mark.parametrize(
+    "coordinates",
+    [
+        {"latitude": 40.78},
+        {"longitude": -73.96},
+        {"latitude": 91, "longitude": 0},
+        {"latitude": 0, "longitude": -181},
+        {"latitude": "NaN", "longitude": 0},
+    ],
+)
+def test_proposal_rejects_invalid_coordinates(scenario, coordinates):
+    s = scenario
+    response = s["client"].post(
+        f"/api/v1/trips/{s['trip']}/proposals", json=s["payload"] | coordinates
+    )
+    assert response.status_code == 422, response.text
+    assert proposals(s) == []
+
+
 def test_vote_updates_snapshot_and_cancellation_preserve_history(scenario):
     s = scenario
     proposal = create(s)
@@ -598,7 +617,8 @@ def test_scheduler_lifespan_recovers_overdue_poll_after_failed_approval(
 
 def test_itinerary_order_and_cross_trip_cancellation(scenario):
     s = scenario
-    later = create(s)
+    later = create(s, latitude=40.78, longitude=-73.96)
+    assert (later["latitude"], later["longitude"]) == (40.78, -73.96)
     earlier_start = datetime.fromisoformat(s["payload"]["starts_at"]) - timedelta(
         hours=2
     )
@@ -607,6 +627,9 @@ def test_itinerary_order_and_cross_trip_cancellation(scenario):
         starts_at=earlier_start.isoformat(),
         ends_at=(earlier_start + timedelta(hours=1)).isoformat(),
     )
+    by_id = {proposal["proposal_id"]: proposal for proposal in proposals(s)}
+    saved = by_id[later["proposal_id"]]
+    assert (saved["latitude"], saved["longitude"]) == (40.78, -73.96)
     for proposal in (later, earlier):
         poll = open_poll(s, proposal["proposal_id"])
         assert vote(s, poll["poll_id"], "YES").status_code == 200
@@ -617,6 +640,8 @@ def test_itinerary_order_and_cross_trip_cancellation(scenario):
         earlier["proposal_id"],
         later["proposal_id"],
     ]
+    assert (items[0]["latitude"], items[0]["longitude"]) == (None, None)
+    assert (items[1]["latitude"], items[1]["longitude"]) == (40.78, -73.96)
     response = s["client"].post(
         "/api/v1/trips",
         json={

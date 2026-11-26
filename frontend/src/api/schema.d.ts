@@ -194,6 +194,7 @@ export interface paths {
          *     Activity times must be in the future and within the travel dates in the trip's timezone.
          *     Description and non-negative estimated cost are required. At most 100 proposals
          *     are allowed per trip, including withdrawn and canceled proposals.
+         *     Latitude and longitude may be supplied together for a confirmed venue.
          */
         post: operations["create_proposal_api_v1_trips__trip_id__proposals_post"];
         delete?: never;
@@ -732,7 +733,7 @@ export interface components {
              */
             kind: "PROPOSAL" | "ITINERARY";
             /** Proposals */
-            proposals: components["schemas"]["CreateProposalRequest-Output"][];
+            proposals: components["schemas"]["ProposalDetails"][];
             /** Draft Id */
             draft_id: number;
             /** Message Id */
@@ -844,7 +845,7 @@ export interface components {
              */
             kind: "PROPOSAL" | "ITINERARY";
             /** Proposals */
-            proposals: components["schemas"]["CreateProposalRequest-Output"][];
+            proposals: components["schemas"]["ProposalDetails"][];
             /** Draft Id */
             draft_id: number;
             /** Message Id */
@@ -918,7 +919,7 @@ export interface components {
             user_name?: string | null;
         };
         /** CreateProposalRequest */
-        "CreateProposalRequest-Input": {
+        CreateProposalRequest: {
             /** Title */
             title: string;
             /** Description */
@@ -937,27 +938,10 @@ export interface components {
              * Format: date-time
              */
             ends_at: string;
-        };
-        /** CreateProposalRequest */
-        "CreateProposalRequest-Output": {
-            /** Title */
-            title: string;
-            /** Description */
-            description: string;
-            /** Estimated Cost */
-            estimated_cost: string;
-            /** Location */
-            location: string;
-            /**
-             * Starts At
-             * Format: date-time
-             */
-            starts_at: string;
-            /**
-             * Ends At
-             * Format: date-time
-             */
-            ends_at: string;
+            /** Latitude */
+            latitude?: number | null;
+            /** Longitude */
+            longitude?: number | null;
         };
         /** CreateTripRequest */
         CreateTripRequest: {
@@ -1041,6 +1025,10 @@ export interface components {
             estimated_cost: string;
             /** Location */
             location: string;
+            /** Latitude */
+            latitude?: number | null;
+            /** Longitude */
+            longitude?: number | null;
             /**
              * Starts At
              * Format: date-time
@@ -1208,6 +1196,27 @@ export interface components {
             voting_history: components["schemas"]["VoteResponse"][];
             resolution: components["schemas"]["PollResolution"] | null;
         };
+        /** ProposalDetails */
+        ProposalDetails: {
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Estimated Cost */
+            estimated_cost: string;
+            /** Location */
+            location: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+        };
         /** ProposalResponse */
         ProposalResponse: {
             /** Proposal Id */
@@ -1224,6 +1233,10 @@ export interface components {
             estimated_cost: string;
             /** Location */
             location: string;
+            /** Latitude */
+            latitude?: number | null;
+            /** Longitude */
+            longitude?: number | null;
             /**
              * Starts At
              * Format: date-time
@@ -2027,7 +2040,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateProposalRequest-Input"];
+                "application/json": components["schemas"]["CreateProposalRequest"];
             };
         };
         responses: {
