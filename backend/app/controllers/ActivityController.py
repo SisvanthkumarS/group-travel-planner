@@ -60,6 +60,7 @@ def create_proposal(trip_id: Id, body: CreateProposalRequest, request: Request, 
     Activity times must be in the future and within the travel dates in the trip's timezone.
     Description and non-negative estimated cost are required. At most 100 proposals
     are allowed per trip, including withdrawn and canceled proposals.
+    Latitude and longitude may be supplied together for a confirmed venue.
     """
     return service.create_proposal(trip_id, body, request.state.current_user.user_id)
 

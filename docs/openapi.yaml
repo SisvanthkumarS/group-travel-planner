@@ -353,7 +353,9 @@ paths:
 
         Description and non-negative estimated cost are required. At most 100 proposals
 
-        are allowed per trip, including withdrawn and canceled proposals.'
+        are allowed per trip, including withdrawn and canceled proposals.
+
+        Latitude and longitude may be supplied together for a confirmed venue.'
       operationId: create_proposal_api_v1_trips__trip_id__proposals_post
       security:
       - CookieAuth: []
@@ -371,7 +373,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateProposalRequest-Input'
+              $ref: '#/components/schemas/CreateProposalRequest'
       responses:
         '201':
           description: Successful Response
@@ -1576,7 +1578,7 @@ components:
           title: Kind
         proposals:
           items:
-            $ref: '#/components/schemas/CreateProposalRequest-Output'
+            $ref: '#/components/schemas/ProposalDetails'
           type: array
           maxItems: 100
           minItems: 1
@@ -1776,7 +1778,7 @@ components:
           title: Kind
         proposals:
           items:
-            $ref: '#/components/schemas/CreateProposalRequest-Output'
+            $ref: '#/components/schemas/ProposalDetails'
           type: array
           maxItems: 100
           minItems: 1
@@ -1928,7 +1930,7 @@ components:
           title: User Name
       type: object
       title: CreateInvitationRequest
-    CreateProposalRequest-Input:
+    CreateProposalRequest:
       properties:
         title:
           type: string
@@ -1956,40 +1958,20 @@ components:
           type: string
           format: date-time
           title: Ends At
-      type: object
-      required:
-      - title
-      - description
-      - estimated_cost
-      - location
-      - starts_at
-      - ends_at
-      title: CreateProposalRequest
-    CreateProposalRequest-Output:
-      properties:
-        title:
-          type: string
-          minLength: 1
-          title: Title
-        description:
-          type: string
-          minLength: 1
-          title: Description
-        estimated_cost:
-          type: string
-          title: Estimated Cost
-        location:
-          type: string
-          minLength: 1
-          title: Location
-        starts_at:
-          type: string
-          format: date-time
-          title: Starts At
-        ends_at:
-          type: string
-          format: date-time
-          title: Ends At
+        latitude:
+          anyOf:
+          - type: number
+            maximum: 90.0
+            minimum: -90.0
+          - type: 'null'
+          title: Latitude
+        longitude:
+          anyOf:
+          - type: number
+            maximum: 180.0
+            minimum: -180.0
+          - type: 'null'
+          title: Longitude
       type: object
       required:
       - title
@@ -2125,6 +2107,16 @@ components:
         location:
           type: string
           title: Location
+        latitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Latitude
+        longitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Longitude
         starts_at:
           type: string
           format: date-time
@@ -2423,6 +2415,40 @@ components:
       - voting_history
       - resolution
       title: PollResponse
+    ProposalDetails:
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: Title
+        description:
+          type: string
+          minLength: 1
+          title: Description
+        estimated_cost:
+          type: string
+          title: Estimated Cost
+        location:
+          type: string
+          minLength: 1
+          title: Location
+        starts_at:
+          type: string
+          format: date-time
+          title: Starts At
+        ends_at:
+          type: string
+          format: date-time
+          title: Ends At
+      type: object
+      required:
+      - title
+      - description
+      - estimated_cost
+      - location
+      - starts_at
+      - ends_at
+      title: ProposalDetails
     ProposalResponse:
       properties:
         proposal_id:
@@ -2446,6 +2472,16 @@ components:
         location:
           type: string
           title: Location
+        latitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Latitude
+        longitude:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Longitude
         starts_at:
           type: string
           format: date-time
