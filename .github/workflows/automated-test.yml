@@ -28,7 +28,7 @@ jobs:
             --write-out '%{http_code}' \
             --user "$JENKINS_USER:$JENKINS_API_TOKEN" \
             --request POST \
-            "${JENKINS_URL%/}/job/hello-world/build")
+            "${JENKINS_URL%/}/job/test/build")
 
           if [ "$status" != "201" ]; then
             echo "Jenkins trigger failed: HTTP $status"
