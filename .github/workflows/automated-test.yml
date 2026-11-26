@@ -1,0 +1,38 @@
+name: Trigger Jenkins Hello World
+
+on:
+  push:
+    branches:
+      - hc-dev
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Jenkins job
+        env:
+          JENKINS_URL: ${{ secrets.JENKINS_URL }}
+          JENKINS_USER: ${{ secrets.JENKINS_USER }}
+          JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
+        run: |
+          status=$(curl \
+            --silent \
+            --show-error \
+            --connect-timeout 15 \
+            --max-time 60 \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            --user "$JENKINS_USER:$JENKINS_API_TOKEN" \
+            --request POST \
+            "${JENKINS_URL%/}/job/hello-world/build")
+
+          if [ "$status" != "201" ]; then
+            echo "Jenkins trigger failed: HTTP $status"
+            exit 1
+          fi
+
+          echo "Jenkins accepted the hello-world job."
