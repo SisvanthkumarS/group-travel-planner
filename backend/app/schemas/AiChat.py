@@ -11,7 +11,7 @@ from pydantic import (
     model_validator,
 )
 
-from backend.app.schemas.activity import CreateProposalRequest
+from backend.app.schemas.activity import ProposalDetails
 
 AiChatDraftKind = Literal["PROPOSAL", "ITINERARY"]
 AiChatDraftStatus = Literal["PENDING", "ACCEPTED", "REJECTED"]
@@ -50,7 +50,7 @@ class AiChatDraftContent(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: AiChatDraftKind
-    proposals: list[CreateProposalRequest] = Field(min_length=1, max_length=100)
+    proposals: list[ProposalDetails] = Field(min_length=1, max_length=100)
 
     @model_validator(mode="after")
     def validate_proposal_count(self):

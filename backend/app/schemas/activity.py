@@ -7,7 +7,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validato
 from backend.app.schemas.trip import NonBlankText
 
 
-class CreateProposalRequest(BaseModel):
+class ProposalDetails(BaseModel):
     title: NonBlankText
     description: NonBlankText
     estimated_cost: Decimal = Field(ge=0, allow_inf_nan=False)
@@ -19,6 +19,17 @@ class CreateProposalRequest(BaseModel):
     def validate_times(self):
         if self.ends_at <= self.starts_at:
             raise ValueError("ends_at must be after starts_at.")
+        return self
+
+
+class CreateProposalRequest(ProposalDetails):
+    latitude: float | None = Field(default=None, ge=-90, le=90, strict=True, allow_inf_nan=False)
+    longitude: float | None = Field(default=None, ge=-180, le=180, strict=True, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def validate_coordinates(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("Provide latitude and longitude together.")
         return self
 
 
@@ -74,6 +85,8 @@ class ProposalResponse(BaseModel):
     description: str
     estimated_cost: Decimal
     location: str
+    latitude: float | None = None
+    longitude: float | None = None
     starts_at: datetime
     ends_at: datetime
     status: Literal["PENDING", "OPEN", "TIED", "APPROVED", "REJECTED", "WITHDRAWN", "CANCELLED"]
@@ -89,6 +102,8 @@ class ItineraryItemResponse(BaseModel):
     description: str
     estimated_cost: Decimal
     location: str
+    latitude: float | None = None
+    longitude: float | None = None
     starts_at: datetime
     ends_at: datetime
     status: Literal["ACTIVE"]

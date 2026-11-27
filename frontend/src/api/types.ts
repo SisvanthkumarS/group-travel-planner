@@ -22,14 +22,14 @@ export type RespondInvitationRequest = Schemas['RespondInvitationRequest'];
 export type ChatMessage = Schemas['AiChatSharedMessageResponse'];
 export type ChatMessagePage = Schemas['AiChatSharedMessagePage'];
 export type ChatDraft = Schemas['AiChatSharedDraftResponse'];
-export type ChatDraftProposal = Schemas['CreateProposalRequest-Output'];
+export type ChatDraftProposal = ChatDraft['proposals'][number];
 export type ChatReply = Schemas['AiChatSharedReply'];
 export type ChatContext = Schemas['AiChatContextResponse'];
 export type DraftDecision = Schemas['AiChatDraftDecisionRequest']['decision'];
 
 export type Proposal = Schemas['ProposalResponse'];
 export type ProposalStatus = Proposal['status'];
-export type CreateProposalRequest = Schemas['CreateProposalRequest-Input'];
+export type CreateProposalRequest = Schemas['CreateProposalRequest'];
 
 export type Poll = Schemas['PollResponse'];
 export type Vote = Schemas['VoteResponse'];

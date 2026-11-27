@@ -835,3 +835,32 @@ JSON error shape above; treat them as general failures.
 Separate browser profiles are useful when testing two accounts: tabs in the same
 profile share the login cookie, so signing in as the invitee also changes the
 session used by other tabs for the same API host.
+
+## 10. Activity coordinates and itinerary map
+
+`POST /trips/{trip_id}/proposals` accepts optional `latitude` and `longitude` in
+decimal degrees. Send both as JSON numbers, omit both, or set both to `null`.
+Latitude must be within `[-90, 90]` and longitude within `[-180, 180]`.
+`location` remains required and supplies the venue label or address.
+
+`GET /trips/{trip_id}/proposals` and `GET /trips/{trip_id}/itinerary` return
+the saved pair or `null` for both fields. An approved itinerary item uses its
+proposal's coordinates. Existing proposals and proposals created from chat
+drafts have `null` coordinates.
+
+### Frontend implementation note
+
+1. In [NewProposalModal.tsx](../frontend/src/pages/trip/NewProposalModal.tsx),
+   add a place picker to the Location field, using the trip destination to
+   prioritize nearby results. Save the selected venue label as `location` and
+   include its coordinates when the traveler confirms the selection. Clear the
+   saved pair if they edit the location text afterward.
+2. In [ItineraryTab.tsx](../frontend/src/pages/trip/ItineraryTab.tsx), add a
+   **List / Map** toggle and reuse the existing trip-local day groups for a day
+   filter. Plot approved activities that have both coordinates, in start-time
+   order. Check for null values explicitly because zero is a valid coordinate.
+3. Keep activities with missing coordinates in the list and offer a map search
+   using the location text and trip destination. In
+   [ProposalCard.tsx](../frontend/src/pages/trip/ProposalCard.tsx), use the saved
+   coordinates for a **View on map** link so travelers can check the venue
+   before voting.

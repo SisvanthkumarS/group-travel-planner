@@ -5,6 +5,7 @@ from sqlalchemy import (
     BigInteger,
     CheckConstraint,
     DateTime,
+    Double,
     ForeignKey,
     ForeignKeyConstraint,
     Identity,
@@ -30,6 +31,8 @@ class Proposal(Base):
     description: Mapped[str] = mapped_column(Text)
     estimated_cost: Mapped[Decimal] = mapped_column(Numeric)
     location: Mapped[str] = mapped_column(Text)
+    latitude: Mapped[float | None] = mapped_column(Double)
+    longitude: Mapped[float | None] = mapped_column(Double)
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(Text, server_default="PENDING")
@@ -38,6 +41,12 @@ class Proposal(Base):
     __table_args__ = (
         CheckConstraint("length(trim(title)) > 0", name="ck_proposals_title"),
         CheckConstraint("length(trim(location)) > 0", name="ck_proposals_location"),
+        CheckConstraint(
+            "(latitude IS NULL AND longitude IS NULL) OR "
+            "(latitude IS NOT NULL AND longitude IS NOT NULL "
+            "AND latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)",
+            name="ck_proposals_coordinates",
+        ),
         CheckConstraint("length(trim(description)) > 0", name="ck_proposals_description"),
         CheckConstraint("estimated_cost >= 0", name="ck_proposals_cost"),
         CheckConstraint("ends_at > starts_at", name="ck_proposals_times"),

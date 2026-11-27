@@ -16,6 +16,7 @@ from backend.app.schemas.activity import (
     OpenPollRequest,
     PollResolution,
     PollResponse,
+    ProposalDetails,
     ProposalResponse,
     ResolvePollRequest,
     VoteRequest,
@@ -162,7 +163,7 @@ class ActivityService:
         return ProposalResponse.model_validate(proposal)
 
     def add_pending_proposals(
-        self, trip: Trip, bodies: Sequence[CreateProposalRequest], user_id: int
+        self, trip: Trip, bodies: Sequence[ProposalDetails], user_id: int
     ) -> list[Proposal]:
         """Validate and flush a batch. The caller must authorize and lock the trip."""
         now = datetime.now(UTC)
@@ -186,9 +187,7 @@ class ActivityService:
         if self.repository.proposal_count(trip_id) + count > 100:
             raise HTTPException(409, "Trip has reached its limit of 100 proposals.")
 
-    def validate_proposal_schedule(
-        self, trip: Trip, body: CreateProposalRequest, now: datetime
-    ) -> None:
+    def validate_proposal_schedule(self, trip: Trip, body: ProposalDetails, now: datetime) -> None:
         if body.starts_at <= now:
             self._invalid("starts_at", "starts_at must be later than the current time.")
         trip_timezone = ZoneInfo(trip.timezone)
@@ -203,7 +202,7 @@ class ActivityService:
             )
 
     def _pending_proposal(
-        self, trip: Trip, body: CreateProposalRequest, user_id: int, now: datetime
+        self, trip: Trip, body: ProposalDetails, user_id: int, now: datetime
     ) -> Proposal:
         self.validate_proposal_schedule(trip, body, now)
         return Proposal(
@@ -330,6 +329,8 @@ class ActivityService:
                 title=proposal.title,
                 description=proposal.description,
                 location=proposal.location,
+                latitude=proposal.latitude,
+                longitude=proposal.longitude,
                 estimated_cost=proposal.estimated_cost,
                 starts_at=proposal.starts_at,
                 ends_at=proposal.ends_at,
