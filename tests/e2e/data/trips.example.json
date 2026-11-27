@@ -1,0 +1,32 @@
+{
+  "trips": {
+    "A": {
+      "name": "Trip A {run_id}-{sequence}",
+      "destination": "New York",
+      "start_date": "today+7",
+      "end_date": "today+10",
+      "timezone": "America/New_York"
+    },
+    "B": {
+      "name": "Trip B {run_id}-{sequence}",
+      "destination": "Boston",
+      "start_date": "today+7",
+      "end_date": "today+10",
+      "timezone": "America/New_York"
+    },
+    "late_join": {
+      "name": "Late Join {run_id}-{sequence}",
+      "destination": "New York",
+      "start_date": "today+7",
+      "end_date": "today+10",
+      "timezone": "America/New_York"
+    },
+    "expiry": {
+      "name": "Expiry {run_id}-{sequence}",
+      "destination": "New York",
+      "start_date": "today",
+      "end_date": "today+1",
+      "timezone": "America/New_York"
+    }
+  }
+}

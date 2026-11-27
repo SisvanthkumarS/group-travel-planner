@@ -13,3 +13,15 @@ coverage/
 .husky/_/
 .tools/
 certs
+
+# Local metadata and Playwright logs
+.DS_Store
+playwright-log*.txt
+
+# Robot Framework artifacts when launched from the repository root
+/results/
+/output.xml
+/log.html
+/report.html
+/browser/
+/videos/

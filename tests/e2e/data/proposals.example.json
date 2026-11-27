@@ -1,0 +1,13 @@
+{
+  "proposals": {
+    "default": {
+      "title": "Park Walk {run_id}-{sequence}",
+      "location": "Central Park",
+      "description": "Walk together in the park.",
+      "cost": "10",
+      "day_offset": 0,
+      "start_time": "10:00",
+      "end_time": "12:00"
+    }
+  }
+}

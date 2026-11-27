@@ -1,0 +1,17 @@
+# Reports, screenshots, recordings, and generated runtime data
+results/
+output.xml
+log.html
+report.html
+browser/
+screenshots/
+videos/
+failure-*.png
+*.webm
+*.mp4
+
+# Local shared data (including plaintext test credentials).
+# Keep data/*.example.json in Git as editable templates.
+users.json
+trips.json
+proposals.json
