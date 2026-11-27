@@ -1,13 +1,17 @@
 import json
+import logging
 from collections.abc import Mapping, Sequence
+from time import monotonic
 from typing import Protocol
 
 from openai import APITimeoutError, OpenAI
 from openai.types.responses import EasyInputMessageParam
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from backend.app.core.config import DEFAULT_OPENAI_MODEL, OpenAiApiMode, get_settings
 from backend.app.schemas.AiChat import AiChatModelReply
+
+logger = logging.getLogger(__name__)
 
 TRAVEL_ASSISTANT_INSTRUCTIONS = """
 You help members plan their shared trip. Reply in the user's language.
@@ -29,6 +33,14 @@ even when the answer mentions specific activities or times. For example,
 "What can I do in Central Park?" gets a normal answer with "draft": null.
 "Create a proposal for a Central Park walk" requests a draft. When the
 intent is ambiguous, ask whether the user wants a draft and set "draft" to null.
+
+Example ordinary question: "Can you suggest things to do in New York?"
+Example JSON answer:
+{
+  "content": "Consider Central Park, a museum, or Brooklyn Bridge. What interests your group?",
+  "draft": null
+}
+Return the complete JSON object for every answer, including ordinary questions.
 
 Set "kind" to "PROPOSAL" for exactly one activity, or "ITINERARY" for
 2 to 100 activities. "proposals" is an array of objects. Each object must
@@ -114,7 +126,12 @@ class OpenAiChatClient:
             role = message["role"]
             if role not in ("user", "assistant"):
                 raise ValueError("Unsupported chat message role.")
-            inputs.append({"role": role, "content": message["content"]})
+            content = message["content"]
+            if self._api_mode == "chat_completions" and role == "assistant":
+                # Stored history contains display text. Match the JSON answer
+                # format when sending earlier assistant turns back to JSON mode.
+                content = json.dumps({"content": content, "draft": None}, ensure_ascii=False)
+            inputs.append({"role": role, "content": content})
 
         try:
             with OpenAI(
@@ -124,20 +141,7 @@ class OpenAiChatClient:
                 max_retries=0,
             ) as client:
                 if self._api_mode == "chat_completions":
-                    completion = client.chat.completions.create(
-                        model=self._model,
-                        messages=[
-                            {"role": "system", "content": TRAVEL_ASSISTANT_INSTRUCTIONS},
-                            *inputs,
-                        ],
-                        response_format={"type": "json_object"},
-                    )
-                    if not completion.choices:
-                        raise ValueError("AI provider returned no reply.")
-                    choice = completion.choices[0]
-                    if choice.finish_reason != "stop" or not choice.message.content:
-                        raise ValueError("AI provider did not return a complete chat reply.")
-                    return AiChatModelReply.model_validate_json(choice.message.content)
+                    return self._generate_chat_completion(client, inputs)
 
                 if self._model == DEFAULT_OPENAI_MODEL:
                     with client.responses.stream(
@@ -172,6 +176,44 @@ class OpenAiChatClient:
         if response.status != "completed" or response.output_parsed is None:
             raise ValueError("AI provider did not return a complete chat reply.")
         return response.output_parsed
+
+    def _generate_chat_completion(
+        self, client: OpenAI, inputs: list[EasyInputMessageParam]
+    ) -> AiChatModelReply:
+        deadline = monotonic() + self._timeout_seconds
+        instructions = TRAVEL_ASSISTANT_INSTRUCTIONS
+        for attempt in range(2):
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                raise TimeoutError("AI provider request timed out.")
+            completion = client.chat.completions.create(
+                model=self._model,
+                messages=[{"role": "system", "content": instructions}, *inputs],
+                response_format={"type": "json_object"},
+                timeout=remaining,
+            )
+            if not completion.choices:
+                raise ValueError("AI provider returned no reply.")
+            choice = completion.choices[0]
+            if choice.finish_reason != "stop":
+                raise ValueError("AI provider did not return a complete chat reply.")
+            try:
+                return AiChatModelReply.model_validate_json(choice.message.content or "")
+            except ValidationError as exc:
+                logger.warning(
+                    "AI JSON validation failed (attempt=%s, blank=%s, error_types=%s).",
+                    attempt + 1,
+                    not (choice.message.content or "").strip(),
+                    [error["type"] for error in exc.errors(include_input=False)],
+                )
+                if attempt == 1:
+                    raise
+                instructions += (
+                    "\nA previous generation failed JSON validation. Produce a complete JSON "
+                    "object with a non-empty content string and draft. For general advice "
+                    "use draft: null. Return JSON directly without Markdown fences."
+                )
+        raise RuntimeError("AI generation attempts exhausted.")
 
 
 def get_ai_chat_client() -> AiChatClient | None:

@@ -1,8 +1,10 @@
 import json
+from unittest.mock import Mock
 
 import httpx
 import pytest
 from openai import OpenAI
+from pydantic import SecretStr, ValidationError
 
 from backend.app.core import AiChatClient as chat_client
 from backend.app.core.config import Settings
@@ -61,7 +63,7 @@ def test_openai_adapter_reads_dotenv_and_parses_reply(
     def respond(request):
         assert request.url.host == "provider.example"
         assert request.headers["Authorization"] == "Bearer example-test-key"
-        assert request.extensions["timeout"]["read"] == 12
+        assert 0 < request.extensions["timeout"]["read"] <= 12
         body = json.loads(request.content)
         assert body["model"] == (model_override or "gpt-6-luna")
         output = json.dumps({"content": "Visit the park.", "draft": draft})
@@ -73,6 +75,10 @@ def test_openai_adapter_reads_dotenv_and_parses_reply(
             assert body["messages"][-1] == {
                 "role": "user",
                 "content": "What can we do?",
+            }
+            assert json.loads(body["messages"][-2]["content"]) == {
+                "content": "Your trip has a park walk.",
+                "draft": None,
             }
             return httpx.Response(
                 200,
@@ -147,10 +153,76 @@ def test_openai_adapter_reads_dotenv_and_parses_reply(
     provider = chat_client.get_ai_chat_client()
     assert provider is not None
     reply = provider.generate(
-        messages=[{"role": "user", "content": "What can we do?"}],
+        messages=[
+            {"role": "user", "content": "Read the itinerary."},
+            {"role": "assistant", "content": "Your trip has a park walk."},
+            {"role": "user", "content": "What can we do?"},
+        ],
         trip_context={"destination": "NYC"},
     )
     assert reply.model_dump(mode="json") == {
         "content": "Visit the park.",
         "draft": draft,
     }
+
+
+@pytest.mark.parametrize("invalid_output", [" \n" * 100, '{"content": "unfinished'])
+def test_chat_completion_recovers_invalid_json_within_original_timeout(
+    monkeypatch, invalid_output
+):
+    sdk = Mock()
+    sdk.__enter__ = Mock(return_value=sdk)
+    sdk.__exit__ = Mock(return_value=False)
+    outputs = [
+        invalid_output,
+        '{"content":"Consider Central Park.","draft":null}',
+    ]
+    calls = []
+
+    def complete(**kwargs):
+        calls.append(kwargs)
+        result = Mock()
+        result.choices = [
+            Mock(finish_reason="stop", message=Mock(content=outputs.pop(0)))
+        ]
+        return result
+
+    sdk.chat.completions.create.side_effect = complete
+    monkeypatch.setattr(chat_client, "OpenAI", lambda **kwargs: sdk)
+    monkeypatch.setattr(chat_client, "monotonic", Mock(side_effect=[100, 100, 105]))
+    provider = chat_client.OpenAiChatClient(
+        SecretStr("test-key"),
+        "example-model",
+        12,
+        base_url="https://provider.example",
+        api_mode="chat_completions",
+    )
+    reply = provider.generate(
+        messages=[{"role": "user", "content": "Suggest places in New York."}],
+        trip_context={},
+    )
+    assert reply.content == "Consider Central Park." and reply.draft is None
+    assert [call["timeout"] for call in calls] == [12, 7]
+    assert calls[0]["messages"][1:] == calls[1]["messages"][1:]
+
+
+def test_chat_completion_does_not_retry_forever_or_accept_blank_reply(monkeypatch):
+    sdk = Mock()
+    sdk.__enter__ = Mock(return_value=sdk)
+    sdk.__exit__ = Mock(return_value=False)
+    result = Mock()
+    result.choices = [Mock(finish_reason="stop", message=Mock(content=" \n" * 100))]
+    sdk.chat.completions.create.return_value = result
+    monkeypatch.setattr(chat_client, "OpenAI", lambda **kwargs: sdk)
+    provider = chat_client.OpenAiChatClient(
+        SecretStr("test-key"),
+        "example-model",
+        12,
+        base_url="https://provider.example",
+        api_mode="chat_completions",
+    )
+    with pytest.raises(ValidationError):
+        provider.generate(
+            messages=[{"role": "user", "content": "Hello"}], trip_context={}
+        )
+    assert sdk.chat.completions.create.call_count == 2
