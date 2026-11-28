@@ -67,16 +67,3 @@ def require_authentication(
         RefreshGrant(result.user.user_id, result.refresh_token, result.refresh_token_max_age),
         settings,
     )
-
-
-def require_admin(
-    request: Request,
-    _: Annotated[None, Depends(require_authentication)],
-) -> User:
-    """Allow only administrators. Shares the cached global authentication result."""
-    user = getattr(request.state, "current_user", None)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required.")
-    if not user.is_admin:
-        raise HTTPException(status_code=403, detail="Administrator access required.")
-    return user

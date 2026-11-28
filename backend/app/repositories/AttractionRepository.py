@@ -21,11 +21,8 @@ class AttractionRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def get(self, attraction_id: int, *, lock: bool = False) -> Attraction | None:
-        query = select(Attraction).where(Attraction.attraction_id == attraction_id)
-        if lock:
-            query = query.with_for_update()
-        return self.session.scalar(query)
+    def get(self, attraction_id: int) -> Attraction | None:
+        return self.session.get(Attraction, attraction_id)
 
     def by_keys(self, keys: Sequence[tuple[str, str]], *, lock: bool = False) -> list[Attraction]:
         if not keys:
@@ -38,16 +35,13 @@ class AttractionRepository:
     def search(
         self,
         *,
-        active_only: bool,
         bounds: tuple[float, float, float, float] | None = None,
         category: str | None = None,
         city: str | None = None,
         q: str | None = None,
         limit: int | None = None,
     ) -> list[Attraction]:
-        query = select(Attraction)
-        if active_only:
-            query = query.where(Attraction.is_active.is_(True))
+        query = select(Attraction).where(Attraction.is_active.is_(True))
         if bounds is not None:
             min_lat, max_lat, min_lng, max_lng = bounds
             query = query.where(Attraction.latitude.between(min_lat, max_lat))

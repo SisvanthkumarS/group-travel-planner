@@ -869,10 +869,11 @@ or `null` when the proposal was not created from an attraction.
 
 ## 11. Curated attractions
 
-Administrators maintain a list of popular attractions with coordinates and an
-introduction. Travelers see active attractions as map markers and can start a
-proposal from one. All routes require the login cookie; `POST`, `PATCH` and
-`DELETE` also require `X-CSRF-Protection: 1`.
+The backend stores a curated list of popular attractions with coordinates and
+an introduction. Travelers see active attractions as map markers and can start
+a proposal from one. Both attraction routes are read-only and require the login
+cookie. There is no administrator role or attraction-editing API; the list is
+maintained through a data file (section 11.3).
 
 ### 11.1 Map markers and details
 
@@ -933,48 +934,28 @@ Use `suggested_duration_minutes` from the detail response to pre-fill `ends_at`.
 }
 ```
 
-### 11.3 Administration
+### 11.3 Maintaining the attraction list
 
-Only users with `is_admin` set can use these routes. Others receive 403.
-Grant access from the command line:
-
-```sh
-uv run --project backend python backend/scripts/make_admin.py --email someone@example.com
-uv run --project backend python backend/scripts/make_admin.py --user-name alice --revoke
-```
-
-| Method | Path                                 | Success                                  |
-| ------ | ------------------------------------ | ---------------------------------------- |
-| GET    | `/admin/attractions`                 | 200, all attractions, including inactive |
-| POST   | `/admin/attractions`                 | 201, created attraction                  |
-| POST   | `/admin/attractions/import`          | 200, `created`, `updated`, `attractions` |
-| GET    | `/admin/attractions/{attraction_id}` | 200, attraction                          |
-| PATCH  | `/admin/attractions/{attraction_id}` | 200, updated attraction                  |
-| DELETE | `/admin/attractions/{attraction_id}` | 204, deactivated                         |
-
-The admin list accepts `category`, `city`, `q` and `is_active` filters.
-Required fields are `name`, `latitude`, `longitude` and `summary`. Optional
-fields are `city`, `country`, `address`, `category`, `description`,
-`image_url`, `opening_hours`, `suggested_duration_minutes` (1 to 1440),
-`typical_cost`, `currency` (three-letter code, stored in upper case) and
-`is_active`. Blank optional text is stored as `null`. Names are unique within a
-city, ignoring case and surrounding spaces; duplicates return 409.
-
-`PATCH` changes only the supplied fields. Optional fields can be cleared with
-`null`; `name`, `latitude`, `longitude`, `summary` and `is_active` cannot be
-`null`. `DELETE` is a soft delete that hides the attraction from travelers;
-restore it with `PATCH {"is_active": true}`.
-
-`POST /admin/attractions/import` takes `{"attractions": [...]}` with 1 to 500
-attractions and runs in one transaction. Rows matching an existing name and
-city are replaced with the supplied values, so omitted optional fields become
-`null`. Two rows with the same name and city in one request return 422.
-
-To load the bundled New York attractions, run the seed script. It can be run
-again safely:
+Attractions are maintained in [backend/data/attractions.json](../backend/data/attractions.json)
+and loaded with the seed script. It can be run again safely:
 
 ```sh
 uv run --project backend python backend/scripts/seed_attractions.py
+# In the Docker development setup:
+docker exec group-travel-planner-backend-1 python backend/scripts/seed_attractions.py
 ```
+
+Each entry requires `name`, `latitude`, `longitude` and `summary`. Optional
+fields are `city`, `country`, `address`, `category`, `description`,
+`image_url`, `opening_hours`, `suggested_duration_minutes` (1 to 1440),
+`typical_cost`, `currency` (three-letter code, stored in upper case) and
+`is_active` (default `true`). Blank optional text is stored as `null`.
+
+Entries are matched to existing rows by name and city, ignoring case and
+surrounding spaces. A matched row is replaced with the file's values, so an
+omitted optional field becomes `null`. To hide an attraction from travelers,
+set `"is_active": false` and run the script again; do not delete its entry,
+because proposals may still reference it. Two entries with the same name and
+city make the whole import fail without changes.
 
 Approximate prices in the seed file should be checked before production use.

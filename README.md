@@ -27,8 +27,9 @@ The FastAPI backend supports:
 - Automatic deadline processing: more YES than NO approves, more NO or zero votes
   rejects, and equal nonzero counts require an organizer tie decision. There is
   no public poll-closing endpoint.
-- Administrator-curated attractions with coordinates and introductions, map
-  marker queries by visible area, and proposals started from an attraction.
+- Curated attractions with coordinates and introductions, loaded from a data
+  file, with map marker queries by visible area and proposals started from an
+  attraction.
 - Automatic addition of approved activities to the itinerary exactly once,
   chronological retrieval, and organizer-only cancellation. Canceled proposals
   retain their poll outcome, vote history, and any tie decision.

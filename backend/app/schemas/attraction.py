@@ -1,4 +1,3 @@
-from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 
@@ -10,7 +9,6 @@ from pydantic import (
     HttpUrl,
     StringConstraints,
     field_serializer,
-    model_validator,
 )
 
 
@@ -71,49 +69,16 @@ class AttractionFields(BaseModel):
         return None if value is None else str(value)
 
 
-class CreateAttractionRequest(AttractionFields):
+class AttractionSeed(AttractionFields):
+    """One entry in backend/data/attractions.json. Set is_active false to hide it."""
+
     is_active: bool = True
 
 
-class UpdateAttractionRequest(BaseModel):
-    """Partial update. Optional details may be cleared with null."""
-
+class AttractionSeedFile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: Name | None = None
-    latitude: Latitude | None = None
-    longitude: Longitude | None = None
-    summary: Summary | None = None
-    city: OptionalText = None
-    country: OptionalText = None
-    address: OptionalText = None
-    category: OptionalText = None
-    description: LongText = None
-    image_url: OptionalUrl = None
-    opening_hours: OptionalText = None
-    suggested_duration_minutes: Duration | None = None
-    typical_cost: Cost | None = None
-    currency: Currency = None
-    is_active: bool | None = None
-
-    @model_validator(mode="after")
-    def validate_patch(self):
-        if not self.model_fields_set:
-            raise ValueError("Provide at least one attraction field to update.")
-        for field in ("name", "latitude", "longitude", "summary", "is_active"):
-            if field in self.model_fields_set and getattr(self, field) is None:
-                raise ValueError(f"{field} cannot be null.")
-        return self
-
-    @field_serializer("image_url")
-    def serialize_url(self, value: HttpUrl | None) -> str | None:
-        return None if value is None else str(value)
-
-
-class ImportAttractionsRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    attractions: list[CreateAttractionRequest] = Field(min_length=1, max_length=500)
+    attractions: list[AttractionSeed] = Field(min_length=1)
 
 
 class AttractionSummaryResponse(BaseModel):
@@ -139,16 +104,3 @@ class AttractionResponse(AttractionSummaryResponse):
     suggested_duration_minutes: int | None
     typical_cost: Decimal | None
     currency: str | None
-
-
-class AdminAttractionResponse(AttractionResponse):
-    is_active: bool
-    created_by_user_id: int | None
-    created_at: datetime
-    updated_at: datetime
-
-
-class ImportAttractionsResponse(BaseModel):
-    created: int
-    updated: int
-    attractions: list[AdminAttractionResponse]

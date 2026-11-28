@@ -170,15 +170,16 @@ SMTP acceptance and database commit cannot be atomic, so retry after a crash or
 ambiguous provider response may duplicate an email. See [notification contracts
 and operational details](notifications.md).
 
-Migration `0012` adds `users.is_admin`, the `attractions` table, and a nullable
-`proposals.attraction_id` (ON DELETE SET NULL). `require_admin` reuses the
-request's cached authentication and returns 403 for non-administrators; access
-is granted only with `backend/scripts/make_admin.py`. `AttractionController`
-serves active map markers and details to signed-in users and CRUD/import routes
-under `/admin/attractions`. Names are unique per city through a case-insensitive
-expression index; violations map to 409. Deletion is a soft deactivation.
-Imports lock matched rows and upsert them in one transaction. When a proposal
-supplies `attraction_id`, `ActivityService` copies the active attraction's name
-and coordinates into the proposal and fills omitted title, description and cost.
-Client coordinates are rejected in that case, and later attraction edits do not
-change existing proposals.
+Migration `0012` adds the `attractions` table and a nullable
+`proposals.attraction_id` (ON DELETE SET NULL). `AttractionController` serves
+read-only map markers and details of active attractions to signed-in users.
+Names are unique per city through a case-insensitive expression index.
+Attractions are loaded from `backend/data/attractions.json` by
+`scripts/seed_attractions.py`, which locks matched rows and upserts the whole
+file in one transaction; hiding an attraction sets `is_active` to false. When a
+proposal supplies `attraction_id`, `ActivityService` copies the active
+attraction's name and coordinates into the proposal and fills omitted title,
+description and cost. Client coordinates are rejected in that case, and later
+attraction edits do not change existing proposals. Migration `0012` also added
+`users.is_admin` for an administrator API; migration `0013` removed both after
+the team took administrator features offline.
