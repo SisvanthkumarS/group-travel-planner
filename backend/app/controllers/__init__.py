@@ -2,6 +2,8 @@ from fastapi import APIRouter
 
 from backend.app.controllers.ActivityController import router as activity_router
 from backend.app.controllers.AiChatController import router as ai_chat_router
+from backend.app.controllers.AttractionController import admin_router as admin_attraction_router
+from backend.app.controllers.AttractionController import router as attraction_router
 from backend.app.controllers.AuthController import router as auth_router
 from backend.app.controllers.InvitationController import router as invitation_router
 from backend.app.controllers.NotificationController import router as notification_router
@@ -14,3 +16,5 @@ router.include_router(invitation_router)
 router.include_router(activity_router)
 router.include_router(ai_chat_router)
 router.include_router(notification_router)
+router.include_router(attraction_router)
+router.include_router(admin_attraction_router)

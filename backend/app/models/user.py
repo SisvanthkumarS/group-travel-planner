@@ -14,6 +14,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(Text)
     in_app_notifications_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     email_notifications_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    is_admin: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )

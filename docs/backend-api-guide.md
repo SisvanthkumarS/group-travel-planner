@@ -841,12 +841,14 @@ session used by other tabs for the same API host.
 `POST /trips/{trip_id}/proposals` accepts optional `latitude` and `longitude` in
 decimal degrees. Send both as JSON numbers, omit both, or set both to `null`.
 Latitude must be within `[-90, 90]` and longitude within `[-180, 180]`.
-`location` remains required and supplies the venue label or address.
+Without `attraction_id`, `location` remains required and supplies the venue
+label or address. See section 11 for proposals created from a curated attraction.
 
 `GET /trips/{trip_id}/proposals` and `GET /trips/{trip_id}/itinerary` return
 the saved pair or `null` for both fields. An approved itinerary item uses its
 proposal's coordinates. Existing proposals and proposals created from chat
-drafts have `null` coordinates.
+drafts have `null` coordinates. Both responses also include `attraction_id`,
+or `null` when the proposal was not created from an attraction.
 
 ### Frontend implementation note
 
@@ -864,3 +866,115 @@ drafts have `null` coordinates.
    [ProposalCard.tsx](../frontend/src/pages/trip/ProposalCard.tsx), use the saved
    coordinates for a **View on map** link so travelers can check the venue
    before voting.
+
+## 11. Curated attractions
+
+Administrators maintain a list of popular attractions with coordinates and an
+introduction. Travelers see active attractions as map markers and can start a
+proposal from one. All routes require the login cookie; `POST`, `PATCH` and
+`DELETE` also require `X-CSRF-Protection: 1`.
+
+### 11.1 Map markers and details
+
+| Method | Path                           | Success                               |
+| ------ | ------------------------------ | ------------------------------------- |
+| GET    | `/attractions`                 | 200, array of markers ordered by name |
+| GET    | `/attractions/{attraction_id}` | 200, full attraction                  |
+
+`GET /attractions` query parameters, all optional:
+
+| Parameter                                  | Rules                                                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `min_lat`, `max_lat`, `min_lng`, `max_lng` | Visible map area. Send all four or none. If `min_lng` is greater than `max_lng`, the area crosses the antimeridian. |
+| `category`, `city`                         | Exact match, ignoring case                                                                                          |
+| `q`                                        | Substring of name, city or address, ignoring case                                                                   |
+| `limit`                                    | 1 to 200, default 100                                                                                               |
+
+Each marker contains `attraction_id`, `name`, `latitude`, `longitude`,
+`category`, `city` and `summary`. Show `summary` in the marker pop-up. The
+detail response adds `country`, `address`, `description`, `image_url`,
+`opening_hours`, `suggested_duration_minutes`, `typical_cost` (a decimal
+string) and `currency`. Deactivated attractions are not listed and return 404.
+
+### 11.2 Start a proposal
+
+`POST /trips/{trip_id}/proposals` supports three ways of choosing the place:
+
+| Case                      | Send                                                                                         | Server behavior                                                |
+| ------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Attraction from the map   | `attraction_id`, `starts_at`, `ends_at`; optionally `title`, `description`, `estimated_cost` | Copies the attraction's coordinates and name into the proposal |
+| Typed place with a pin    | `title`, `description`, `estimated_cost`, `location`, `latitude`, `longitude`, times         | Saves the pinned coordinates; `attraction_id` is `null`        |
+| Typed place without a pin | `title`, `description`, `estimated_cost`, `location`, times                                  | Coordinates and `attraction_id` are `null`                     |
+
+With `attraction_id`:
+
+- Do not send `latitude` or `longitude`; the request returns 422 if you do.
+  Coordinates are hidden from travelers and copied by the server.
+- Omit `location` or send exactly the attraction name. A different value
+  returns 422 for `location`. If the traveler edits the place name, submit the
+  typed-place case instead, optionally with the attraction's coordinates as a pin.
+- Omitted `title`, `description` and `estimated_cost` default to the
+  attraction's `name`, `summary` and `typical_cost` (0 if it has none).
+- An unknown or deactivated attraction returns 422 for `attraction_id`.
+- The coordinates are a snapshot. Later attraction edits or deactivation do
+  not change existing proposals.
+
+Without `attraction_id`, a missing `title`, `description`, `estimated_cost` or
+`location` returns 422 with that field in `loc`. Time rules are unchanged.
+Use `suggested_duration_minutes` from the detail response to pre-fill `ends_at`.
+
+#### Request example: from an attraction
+
+```json
+{
+  "attraction_id": 3,
+  "starts_at": "2030-07-12T10:00:00-04:00",
+  "ends_at": "2030-07-12T12:00:00-04:00"
+}
+```
+
+### 11.3 Administration
+
+Only users with `is_admin` set can use these routes. Others receive 403.
+Grant access from the command line:
+
+```sh
+uv run --project backend python backend/scripts/make_admin.py --email someone@example.com
+uv run --project backend python backend/scripts/make_admin.py --user-name alice --revoke
+```
+
+| Method | Path                                 | Success                                  |
+| ------ | ------------------------------------ | ---------------------------------------- |
+| GET    | `/admin/attractions`                 | 200, all attractions, including inactive |
+| POST   | `/admin/attractions`                 | 201, created attraction                  |
+| POST   | `/admin/attractions/import`          | 200, `created`, `updated`, `attractions` |
+| GET    | `/admin/attractions/{attraction_id}` | 200, attraction                          |
+| PATCH  | `/admin/attractions/{attraction_id}` | 200, updated attraction                  |
+| DELETE | `/admin/attractions/{attraction_id}` | 204, deactivated                         |
+
+The admin list accepts `category`, `city`, `q` and `is_active` filters.
+Required fields are `name`, `latitude`, `longitude` and `summary`. Optional
+fields are `city`, `country`, `address`, `category`, `description`,
+`image_url`, `opening_hours`, `suggested_duration_minutes` (1 to 1440),
+`typical_cost`, `currency` (three-letter code, stored in upper case) and
+`is_active`. Blank optional text is stored as `null`. Names are unique within a
+city, ignoring case and surrounding spaces; duplicates return 409.
+
+`PATCH` changes only the supplied fields. Optional fields can be cleared with
+`null`; `name`, `latitude`, `longitude`, `summary` and `is_active` cannot be
+`null`. `DELETE` is a soft delete that hides the attraction from travelers;
+restore it with `PATCH {"is_active": true}`.
+
+`POST /admin/attractions/import` takes `{"attractions": [...]}` with 1 to 500
+attractions and runs in one transaction. Rows matching an existing name and
+city are replaced with the supplied values, so omitted optional fields become
+`null`. Two rows with the same name and city in one request return 422.
+
+To load the bundled New York attractions, run the seed script. It can be run
+again safely:
+
+```sh
+uv run --project backend python backend/scripts/seed_attractions.py
+```
+
+Approximate prices in the seed file should be checked before production use.

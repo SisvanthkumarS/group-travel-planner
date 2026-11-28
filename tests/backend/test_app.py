@@ -39,6 +39,11 @@ def test_documentation_and_api_contract():
         "/api/v1/chats/{chat_id}/context",
         "/api/v1/chats/{chat_id}/messages",
         "/api/v1/chats/{chat_id}/drafts/{draft_id}",
+        "/api/v1/attractions",
+        "/api/v1/attractions/{attraction_id}",
+        "/api/v1/admin/attractions",
+        "/api/v1/admin/attractions/import",
+        "/api/v1/admin/attractions/{attraction_id}",
     }
     assert client.get("/docs").status_code == 200
 

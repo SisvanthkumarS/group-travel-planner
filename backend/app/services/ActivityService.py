@@ -13,6 +13,7 @@ from backend.app.repositories.ActivityRepository import ActivityRepository
 from backend.app.schemas.activity import (
     CreateProposalRequest,
     ItineraryItemResponse,
+    LocatedProposal,
     OpenPollRequest,
     PollResolution,
     PollResponse,
@@ -22,6 +23,7 @@ from backend.app.schemas.activity import (
     VoteRequest,
     VoteResponse,
 )
+from backend.app.services.AttractionService import AttractionService
 from backend.app.services.NotificationPublisher import NotificationPublisher
 
 
@@ -159,8 +161,44 @@ class ActivityService:
     @transaction
     def create_proposal(self, trip_id: int, body: CreateProposalRequest, user_id: int):
         trip = self._trip(trip_id, user_id)
-        proposal = self.add_pending_proposals(trip, [body], user_id)[0]
+        proposal = self.add_pending_proposals(trip, [self._locate(body)], user_id)[0]
         return ProposalResponse.model_validate(proposal)
+
+    def _locate(self, body: CreateProposalRequest) -> LocatedProposal:
+        values = body.model_dump(exclude={"attraction_id"})
+        if body.attraction_id is None:
+            for field in ("title", "description", "estimated_cost", "location"):
+                if values[field] is None:
+                    self._invalid(field, "Field required unless attraction_id is supplied.")
+            return LocatedProposal.model_validate(values)
+
+        attraction = AttractionService(self.session).active_for_proposal(body.attraction_id)
+        if attraction is None:
+            self._invalid("attraction_id", "Attraction not found or no longer available.")
+        if body.location is not None and body.location != attraction.name.strip():
+            self._invalid(
+                "location",
+                "location must match the selected attraction; "
+                "omit attraction_id to use a custom place.",
+            )
+        defaults = {
+            "title": attraction.name,
+            "description": attraction.summary,
+            "estimated_cost": attraction.typical_cost or 0,
+        }
+        for field, default in defaults.items():
+            if values[field] is None:
+                values[field] = default
+        return LocatedProposal.model_validate(
+            values
+            | {
+                "location": attraction.name,
+                # Snapshot: later attraction edits do not move existing proposals.
+                "latitude": attraction.latitude,
+                "longitude": attraction.longitude,
+                "attraction_id": attraction.attraction_id,
+            }
+        )
 
     def add_pending_proposals(
         self, trip: Trip, bodies: Sequence[ProposalDetails], user_id: int
@@ -331,6 +369,7 @@ class ActivityService:
                 location=proposal.location,
                 latitude=proposal.latitude,
                 longitude=proposal.longitude,
+                attraction_id=proposal.attraction_id,
                 estimated_cost=proposal.estimated_cost,
                 starts_at=proposal.starts_at,
                 ends_at=proposal.ends_at,

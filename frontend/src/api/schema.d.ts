@@ -679,10 +679,185 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attractions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Attractions
+         * @description Map markers for active attractions, ordered by name.
+         *
+         *     Send all four bounds for the visible map area, or none of them. When
+         *     `min_lng` is greater than `max_lng` the area crosses the antimeridian.
+         *     `category` and `city` match case-insensitively; `q` searches name, city
+         *     and address. Results contain the short `summary` for the marker pop-up.
+         */
+        get: operations["list_attractions_api_v1_attractions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attractions/{attraction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Attraction
+         * @description Full introduction and visiting details for an active attraction.
+         *
+         *     Use `suggested_duration_minutes` and `typical_cost` to pre-fill a proposal.
+         */
+        get: operations["get_attraction_api_v1_attractions__attraction_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/attractions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin List Attractions
+         * @description Administrators only: list all attractions, including deactivated ones.
+         */
+        get: operations["admin_list_attractions_api_v1_admin_attractions_get"];
+        put?: never;
+        /**
+         * Admin Create Attraction
+         * @description Administrators only: add an attraction. Names are unique per city, ignoring case.
+         */
+        post: operations["admin_create_attraction_api_v1_admin_attractions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/attractions/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Import Attractions
+         * @description Administrators only: create or update up to 500 attractions in one transaction.
+         *
+         *     Rows are matched by case-insensitive name and city. Matched rows are replaced
+         *     with the supplied values; omitted optional fields become null.
+         */
+        post: operations["admin_import_attractions_api_v1_admin_attractions_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/attractions/{attraction_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Get Attraction
+         * @description Administrators only: read an attraction, including a deactivated one.
+         */
+        get: operations["admin_get_attraction_api_v1_admin_attractions__attraction_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Admin Deactivate Attraction
+         * @description Administrators only: hide an attraction from travelers (soft delete).
+         *
+         *     Linked proposals are unaffected. Repeating the request also returns 204.
+         */
+        delete: operations["admin_deactivate_attraction_api_v1_admin_attractions__attraction_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Admin Update Attraction
+         * @description Administrators only: partially update an attraction.
+         *
+         *     Omitted fields stay unchanged; optional details can be cleared with null.
+         *     Set `is_active` to true to restore a deactivated attraction. Existing
+         *     proposals keep the coordinates copied when they were created.
+         */
+        patch: operations["admin_update_attraction_api_v1_admin_attractions__attraction_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminAttractionResponse */
+        AdminAttractionResponse: {
+            /** Attraction Id */
+            attraction_id: number;
+            /** Name */
+            name: string;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Category */
+            category: string | null;
+            /** City */
+            city: string | null;
+            /** Summary */
+            summary: string;
+            /** Country */
+            country: string | null;
+            /** Address */
+            address: string | null;
+            /** Description */
+            description: string | null;
+            /** Image Url */
+            image_url: string | null;
+            /** Opening Hours */
+            opening_hours: string | null;
+            /** Suggested Duration Minutes */
+            suggested_duration_minutes: number | null;
+            /** Typical Cost */
+            typical_cost: string | null;
+            /** Currency */
+            currency: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Created By User Id */
+            created_by_user_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** AiChatContextResponse */
         AiChatContextResponse: {
             /**
@@ -911,6 +1086,107 @@ export interface components {
             user_message: components["schemas"]["AiChatSharedMessageResponse"];
             assistant_message: components["schemas"]["AiChatSharedMessageResponse"];
         };
+        /** AttractionResponse */
+        AttractionResponse: {
+            /** Attraction Id */
+            attraction_id: number;
+            /** Name */
+            name: string;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Category */
+            category: string | null;
+            /** City */
+            city: string | null;
+            /** Summary */
+            summary: string;
+            /** Country */
+            country: string | null;
+            /** Address */
+            address: string | null;
+            /** Description */
+            description: string | null;
+            /** Image Url */
+            image_url: string | null;
+            /** Opening Hours */
+            opening_hours: string | null;
+            /** Suggested Duration Minutes */
+            suggested_duration_minutes: number | null;
+            /** Typical Cost */
+            typical_cost: string | null;
+            /** Currency */
+            currency: string | null;
+        };
+        /**
+         * AttractionSummaryResponse
+         * @description Lightweight map marker.
+         */
+        AttractionSummaryResponse: {
+            /** Attraction Id */
+            attraction_id: number;
+            /** Name */
+            name: string;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Category */
+            category: string | null;
+            /** City */
+            city: string | null;
+            /** Summary */
+            summary: string;
+        };
+        /** CreateAttractionRequest */
+        CreateAttractionRequest: {
+            /** Name */
+            name: string;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /**
+             * Summary
+             * @description Short introduction shown in the map pop-up.
+             */
+            summary: string;
+            /** City */
+            city?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Category */
+            category?: string | null;
+            /**
+             * Description
+             * @description Full introduction.
+             */
+            description?: string | null;
+            /** Image Url */
+            image_url?: string | null;
+            /** Opening Hours */
+            opening_hours?: string | null;
+            /** Suggested Duration Minutes */
+            suggested_duration_minutes?: number | null;
+            /**
+             * Typical Cost
+             * @description Approximate cost per person, in `currency`.
+             */
+            typical_cost?: number | string | null;
+            /**
+             * Currency
+             * @description ISO 4217 code, for example USD.
+             */
+            currency?: string | null;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+        };
         /** CreateInvitationRequest */
         CreateInvitationRequest: {
             /** Email */
@@ -918,16 +1194,26 @@ export interface components {
             /** User Name */
             user_name?: string | null;
         };
-        /** CreateProposalRequest */
+        /**
+         * CreateProposalRequest
+         * @description Create a proposal at a curated attraction, a pinned place, or a named place.
+         *
+         *     With `attraction_id`, the server copies the attraction's coordinates; omit
+         *     `latitude`/`longitude`. `location` may be omitted or must equal the attraction
+         *     name, and omitted `title`, `description` and `estimated_cost` default to the
+         *     attraction's name, summary and typical cost (or 0). Without `attraction_id`,
+         *     `title`, `description`, `estimated_cost` and `location` are required, and a
+         *     pinned `latitude`/`longitude` pair is optional.
+         */
         CreateProposalRequest: {
             /** Title */
-            title: string;
+            title?: string | null;
             /** Description */
-            description: string;
+            description?: string | null;
             /** Estimated Cost */
-            estimated_cost: number | string;
+            estimated_cost?: number | string | null;
             /** Location */
-            location: string;
+            location?: string | null;
             /**
              * Starts At
              * Format: date-time
@@ -942,6 +1228,11 @@ export interface components {
             latitude?: number | null;
             /** Longitude */
             longitude?: number | null;
+            /**
+             * Attraction Id
+             * @description Active attraction selected on the map.
+             */
+            attraction_id?: number | null;
         };
         /** CreateTripRequest */
         CreateTripRequest: {
@@ -969,6 +1260,20 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ImportAttractionsRequest */
+        ImportAttractionsRequest: {
+            /** Attractions */
+            attractions: components["schemas"]["CreateAttractionRequest"][];
+        };
+        /** ImportAttractionsResponse */
+        ImportAttractionsResponse: {
+            /** Created */
+            created: number;
+            /** Updated */
+            updated: number;
+            /** Attractions */
+            attractions: components["schemas"]["AdminAttractionResponse"][];
         };
         /** InvitationResponse */
         InvitationResponse: {
@@ -1029,6 +1334,8 @@ export interface components {
             latitude?: number | null;
             /** Longitude */
             longitude?: number | null;
+            /** Attraction Id */
+            attraction_id?: number | null;
             /**
              * Starts At
              * Format: date-time
@@ -1237,6 +1544,8 @@ export interface components {
             latitude?: number | null;
             /** Longitude */
             longitude?: number | null;
+            /** Attraction Id */
+            attraction_id?: number | null;
             /**
              * Starts At
              * Format: date-time
@@ -1372,6 +1681,42 @@ export interface components {
         UnreadCountResponse: {
             /** Unread Count */
             unread_count: number;
+        };
+        /**
+         * UpdateAttractionRequest
+         * @description Partial update. Optional details may be cleared with null.
+         */
+        UpdateAttractionRequest: {
+            /** Name */
+            name?: string | null;
+            /** Latitude */
+            latitude?: number | null;
+            /** Longitude */
+            longitude?: number | null;
+            /** Summary */
+            summary?: string | null;
+            /** City */
+            city?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Image Url */
+            image_url?: string | null;
+            /** Opening Hours */
+            opening_hours?: string | null;
+            /** Suggested Duration Minutes */
+            suggested_duration_minutes?: number | null;
+            /** Typical Cost */
+            typical_cost?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
         };
         /**
          * UpdateTripRequest
@@ -3455,6 +3800,415 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    list_attractions_api_v1_attractions_get: {
+        parameters: {
+            query?: {
+                min_lat?: number | null;
+                max_lat?: number | null;
+                min_lng?: number | null;
+                max_lng?: number | null;
+                category?: string | null;
+                city?: string | null;
+                q?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttractionSummaryResponse"][];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Incomplete or invalid map bounds. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_attraction_api_v1_attractions__attraction_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attraction_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttractionResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Attraction not found or no longer available. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_list_attractions_api_v1_admin_attractions_get: {
+        parameters: {
+            query?: {
+                category?: string | null;
+                city?: string | null;
+                q?: string | null;
+                is_active?: boolean | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAttractionResponse"][];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Administrator access required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_create_attraction_api_v1_admin_attractions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAttractionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAttractionResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Administrator access required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Same name already exists in this city. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_import_attractions_api_v1_admin_attractions_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportAttractionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportAttractionsResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Administrator access required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A concurrent change created a duplicate attraction. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_get_attraction_api_v1_admin_attractions__attraction_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attraction_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAttractionResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Administrator access required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Attraction not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_deactivate_attraction_api_v1_admin_attractions__attraction_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attraction_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Administrator access required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Attraction not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_update_attraction_api_v1_admin_attractions__attraction_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attraction_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAttractionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAttractionResponse"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Administrator access required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Attraction not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Same name already exists in this city. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };

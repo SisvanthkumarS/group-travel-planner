@@ -33,6 +33,9 @@ class Proposal(Base):
     location: Mapped[str] = mapped_column(Text)
     latitude: Mapped[float | None] = mapped_column(Double)
     longitude: Mapped[float | None] = mapped_column(Double)
+    attraction_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("attractions.attraction_id", ondelete="SET NULL")
+    )
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(Text, server_default="PENDING")
@@ -56,6 +59,7 @@ class Proposal(Base):
             name="ck_proposals_status",
         ),
         Index("idx_proposals_trip", "trip_id"),
+        Index("idx_proposals_attraction", "attraction_id"),
     )
 
 

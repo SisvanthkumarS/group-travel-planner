@@ -1,4 +1,5 @@
 from backend.app.models.AiChat import AiChatDraft, AiChatDraftProposal, AiChatMessage, AiChatSession
+from backend.app.models.attraction import Attraction
 from backend.app.models.base import Base
 from backend.app.models.invitation import Invitation
 from backend.app.models.notification import Notification, NotificationEmail
@@ -8,6 +9,7 @@ from backend.app.models.user import User
 
 __all__ = [
     "Base",
+    "Attraction",
     "AiChatSession",
     "AiChatMessage",
     "AiChatDraft",
